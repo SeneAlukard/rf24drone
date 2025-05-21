@@ -1,0 +1,22 @@
+# === Build output ===
+build/
+obj/
+gbs_program
+compile_commands.json
+
+# === Editor / Dev tools ===
+.cache/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# === CMake cache ===
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile.back
+
+# === Misc ===
+*.log
+
