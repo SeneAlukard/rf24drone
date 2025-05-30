@@ -1,39 +1,44 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.16)
 project(drone LANGUAGES CXX)
 
-# Set C++ version
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Export compile_commands.json for tooling (e.g., clangd)
+# compile_commands.json çıktısı
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Add header files (include/)
-include_directories(${CMAKE_SOURCE_DIR}/include)
+# src altındaki tüm cpp dosyalarını al
+file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
+    ${CMAKE_SOURCE_DIR}/src/*.cpp
+)
 
-# Collect all .cpp source files in src/
-file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS "${CMAKE_SOURCE_DIR}/src/*.cpp")
-
-# Define the executable target
 add_executable(drone ${SRC_FILES})
 
-# Link with RF24 (assumed to be installed system-wide)
-target_link_libraries(drone PRIVATE rf24)
+target_include_directories(drone
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+)
 
-# Optionally create symlink for compile_commands.json at project root
-if(CMAKE_EXPORT_COMPILE_COMMANDS)
-  execute_process(
+# RF24 sistemde kuruluysa
+find_library(RF24_LIB NAMES rf24)
+if(NOT RF24_LIB)
+    message(FATAL_ERROR "RF24 library not found")
+endif()
+
+target_link_libraries(drone PRIVATE ${RF24_LIB})
+
+# compile_commands.json symlink
+add_custom_command(
+    TARGET drone POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E create_symlink
             ${CMAKE_BINARY_DIR}/compile_commands.json
             ${CMAKE_SOURCE_DIR}/compile_commands.json
-    RESULT_VARIABLE link_result
-  )
-endif()
+)
 
-# Add a custom 'run' target to build and execute
+# make run hedefi
 add_custom_target(run
-  DEPENDS drone
-  COMMAND drone
-  COMMENT "🚀 Running drone"
+    COMMAND drone
+    DEPENDS drone
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
 
