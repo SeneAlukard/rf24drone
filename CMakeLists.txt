@@ -7,6 +7,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # compile_commands.json çıktısı
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# --- YENİ EKLENEN BÖLÜM ---
+# RF24 submodule'ünün CMakeLists.txt dosyasını işle
+# Bu, RF24 kütüphanesini derleyecek ve bir CMake hedefi oluşturacaktır.
+# external/RF24 klasörünün projenizin ana dizininde olduğunu varsayıyoruz.
+add_subdirectory(external/RF24)
+# --- YENİ EKLENEN BÖLÜM SONU ---
+
 # src altındaki tüm cpp dosyalarını al
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
     ${CMAKE_SOURCE_DIR}/src/*.cpp
@@ -19,13 +26,21 @@ target_include_directories(drone
         ${CMAKE_SOURCE_DIR}/include
 )
 
-# RF24 sistemde kuruluysa
-find_library(RF24_LIB NAMES rf24)
-if(NOT RF24_LIB)
-    message(FATAL_ERROR "RF24 library not found")
-endif()
+# --- SİLİNEN VEYA DEĞİŞTİRİLEN BÖLÜM ---
+# # RF24 sistemde kuruluysa
+# find_library(RF24_LIB NAMES rf24)
+# if(NOT RF24_LIB)
+#     message(FATAL_ERROR "RF24 library not found")
+# endif()
+#
+# target_link_libraries(drone PRIVATE ${RF24_LIB})
+# --- SİLİNEN VEYA DEĞİŞTİRİLEN BÖLÜM SONU ---
 
-target_link_libraries(drone PRIVATE ${RF24_LIB})
+# --- YENİ target_link_libraries SATIRI ---
+# drone hedefini, submodule tarafından oluşturulan rf24 hedefine bağla
+# (RF24'ün CMake hedef adının "rf24" olduğunu varsayıyoruz)
+target_link_libraries(drone PRIVATE rf24)
+# --- YENİ target_link_libraries SATIRI SONU ---
 
 # compile_commands.json symlink
 add_custom_command(
@@ -38,7 +53,6 @@ add_custom_command(
 # make run hedefi
 add_custom_target(run
     COMMAND drone
-    DEPENDS drone
+ DEPENDS drone
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
 )
-

@@ -11,6 +11,9 @@ compile_commands.json
 *.swp
 *.swo
 
+# === Build Folder ===
+build/
+
 # === CMake cache ===
 CMakeFiles/
 CMakeCache.txt
