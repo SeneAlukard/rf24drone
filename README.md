@@ -32,8 +32,8 @@ Built with modular CMake structure and supports automatic leader selection, tele
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/SeneAlukard/rf24server.git
-cd rf24server
+git clone git@github.com:SeneAlukard/rf24drone.git
+cd rf24drone
 ```
 
 ### 2. Build with CMake
