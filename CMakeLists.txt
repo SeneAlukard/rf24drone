@@ -11,7 +11,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # RF24 submodule'ünün CMakeLists.txt dosyasını işle
 # Bu, RF24 kütüphanesini derleyecek ve bir CMake hedefi oluşturacaktır.
 # external/RF24 klasörünün projenizin ana dizininde olduğunu varsayıyoruz.
-#add_subdirectory(external/RF24)
+add_subdirectory(external/RF24)
 # --- YENİ EKLENEN BÖLÜM SONU ---
 
 # src altındaki tüm cpp dosyalarını al
