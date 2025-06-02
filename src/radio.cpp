@@ -5,7 +5,7 @@
 // --- Global RF24 Nesnesinin Tanımı ---
 // radio.hpp'de 'extern RF24 radio;' olarak bildirilmişti.
 // Kullanıcı tarafından belirtilen pinler: CE=22, CSN=7
-RF24 radio(22, 7);
+RF24 radio(22, 0);
 
 // --- Örnek RF Adreslerinin Tanımları (radio.hpp'de extern olarak
 // bildirilmişti) --- Bu adresleri kendi ağ yapılandırmanıza göre
