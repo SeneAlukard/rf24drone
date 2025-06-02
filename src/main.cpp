@@ -6,7 +6,7 @@
 
 // CE pin = BCM22, CSN = BCM0 (SPI CE0)
 // adjust if you wire differently
-RF24 radio(22, 7);
+RF24 radio(22, 8);
 
 // Unique 64-bit address for the pipe
 const uint64_t PIPE_ADDRESS = 0xE8E8F0F0E1LL;
