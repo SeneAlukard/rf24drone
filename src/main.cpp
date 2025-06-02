@@ -1,61 +1,66 @@
-#include <chrono>  // Zaman damgaları ve beklemeler için
-#include <fstream> // For file logging
-#include <iomanip> // std::hex, std::setfill, std::setw için (adres yazdırmada)
-#include <iostream>
-#include <optional> // std::optional için
-#include <string>
-#include <thread> // std::this_thread::sleep_for için
-#include <vector>
+#include <chrono>   // For timestamps and delays
+#include <fstream>  // For file logging
+#include <iomanip>  // For std::hex, std::setfill, std::setw (in printRfAddress)
+#include <iostream> // For console output
+#include <optional> // For std::optional (used in Drone class)
+#include <string>   // For std::string
+#include <thread>   // For std::this_thread::sleep_for
+#include <vector>   // Not directly used in this version, but often useful
 
-#include "drone.hpp"   // Kendi Drone sınıfımız
-#include "packets.hpp" // Paket tanımlamalarımız
-#include "radio.hpp"   // Radyo haberleşme fonksiyonlarımız
+#include "drone.hpp"   // Drone class definition
+#include "packets.hpp" // Packet structure definitions
+#include "radio.hpp" // Radio communication functions (setupRFCommunication, sendXPacket, etc.)
 
 // --- Drone Identity Configuration ---
-// Define which drone this instance is. Uncomment ONE of the following lines.
-// For the first drone, uncomment #define IS_DRONE_1
-// For the second drone, uncomment #define IS_DRONE_2
-// Then compile and run on the respective drone.
-#define IS_DRONE_1
+// IMPORTANT: Define which drone this instance is.
+//            Uncomment ONLY ONE of the following lines for each drone.
+//            Then, recompile and upload to that specific drone.
+
+// #define IS_DRONE_1
 // #define IS_DRONE_2
+
+// --- Sanity Check for Drone Identity ---
+#if !defined(IS_DRONE_1) && !defined(IS_DRONE_2)
+#error                                                                         \
+    "CRITICAL ERROR: Drone identity not defined! Please uncomment either IS_DRONE_1 or IS_DRONE_2 at the top of main.cpp and recompile."
+#elif defined(IS_DRONE_1) && defined(IS_DRONE_2)
+#error                                                                         \
+    "CRITICAL ERROR: Both IS_DRONE_1 and IS_DRONE_2 are defined! Please uncomment only ONE and recompile."
+#endif
 // ----------------------------------
 
 // --- RF Address Definitions for Two Drones ---
-// Ensure these are unique for your pair of drones.
+// These addresses define how the drones talk to each other.
+// Drone 1 listens on DRONE1_LISTEN_ADDRESS and sends to DRONE2_LISTEN_ADDRESS.
+// Drone 2 listens on DRONE2_LISTEN_ADDRESS and sends to DRONE1_LISTEN_ADDRESS.
 const uint8_t DRONE1_LISTEN_ADDRESS[RF24_ADDRESS_WIDTH] = {0xE1, 0xE1, 0xE1,
                                                            0xE1, 0xE1};
 const uint8_t DRONE2_LISTEN_ADDRESS[RF24_ADDRESS_WIDTH] = {0xD2, 0xD2, 0xD2,
                                                            0xD2, 0xD2};
 // --------------------------------------------
 
-// --- Conditionally Set Addresses and Drone Name ---
+// --- Conditionally Set Addresses, Drone Name, and Network ID ---
 #if defined(IS_DRONE_1)
 const uint8_t *const THIS_DRONE_LISTEN_ADDR_P0 = DRONE1_LISTEN_ADDRESS;
 const uint8_t *const THIS_DRONE_LISTEN_ADDR_P1 =
-    nullptr; // Not using P1 for this example
-const uint8_t *const TARGET_DEVICE_ADDR =
-    DRONE2_LISTEN_ADDRESS; // Drone 1 sends to Drone 2
+    nullptr; // Pipe 1 not used in this basic setup
+const uint8_t *const TARGET_DEVICE_ADDR = DRONE2_LISTEN_ADDRESS;
 std::string THIS_DRONE_NAME = "Drone-Alpha";
+DroneIdType THIS_DRONE_NETWORK_ID = 1;
 #elif defined(IS_DRONE_2)
 const uint8_t *const THIS_DRONE_LISTEN_ADDR_P0 = DRONE2_LISTEN_ADDRESS;
 const uint8_t *const THIS_DRONE_LISTEN_ADDR_P1 =
-    nullptr; // Not using P1 for this example
-const uint8_t *const TARGET_DEVICE_ADDR =
-    DRONE1_LISTEN_ADDRESS; // Drone 2 sends to Drone 1
+    nullptr; // Pipe 1 not used in this basic setup
+const uint8_t *const TARGET_DEVICE_ADDR = DRONE1_LISTEN_ADDRESS;
 std::string THIS_DRONE_NAME = "Drone-Beta";
-#else
-#error                                                                         \
-    "Drone identity not defined! Please define IS_DRONE_1 or IS_DRONE_2 at the top of main.cpp."
-// Default fallback to prevent compilation errors, but communication will likely
-// fail.
-const uint8_t *const THIS_DRONE_LISTEN_ADDR_P0 = DRONE1_LISTEN_ADDRESS;
-const uint8_t *const THIS_DRONE_LISTEN_ADDR_P1 = nullptr;
-const uint8_t *const TARGET_DEVICE_ADDR = DRONE2_LISTEN_ADDRESS;
-std::string THIS_DRONE_NAME = "Drone-Default";
+DroneIdType THIS_DRONE_NETWORK_ID = 2;
 #endif
 // -------------------------------------------------
 
-// --- Yardımcı Fonksiyonlar ---
+// Global log file stream
+std::ofstream log_file;
+
+// --- Helper Functions ---
 uint32_t getCurrentTimestamp() {
   return static_cast<uint32_t>(
       std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -63,6 +68,7 @@ uint32_t getCurrentTimestamp() {
           .count());
 }
 
+// Modified to write to any ostream (e.g., cout or log_file)
 void printRfAddress(std::ostream &out, const char *label,
                     const uint8_t *address) {
   out << label;
@@ -76,281 +82,229 @@ void printRfAddress(std::ostream &out, const char *label,
   } else {
     out << "NULL";
   }
-  out << std::dec;
+  out << std::dec; // Switch back to decimal for subsequent output
+}
+
+// Function to log messages to both console and file
+void logMessage(const std::string &message, bool is_error = false) {
+  uint32_t ts = getCurrentTimestamp();
+  std::ostream &console_stream = is_error ? std::cerr : std::cout;
+
+  console_stream << "[" << ts << "] " << message << std::endl;
+  if (log_file.is_open()) {
+    log_file << "[" << ts << "] " << message << std::endl;
+  }
 }
 
 int main() {
-  std::ofstream log_file("drone_log.txt", std::ios::app);
-
+  // Open log file in append mode
+  log_file.open("drone_log.txt", std::ios::app);
   if (!log_file.is_open()) {
-    std::cerr << "FATAL ERROR: Could not open log file 'drone_log.txt'!"
+    // If log file can't be opened, we can only use cerr/cout
+    std::cerr << "[" << getCurrentTimestamp()
+              << "] FATAL ERROR: Could not open log file 'drone_log.txt'!"
               << std::endl;
-    std::cout << "FATAL ERROR: Could not open log file 'drone_log.txt'!"
-              << std::endl;
-    return 1;
+    // We might choose to exit or continue without file logging. For now,
+    // continue.
   }
 
-  uint32_t ts_start = getCurrentTimestamp();
-  log_file << "[" << ts_start << "] ===== Drone NRF24 Program ("
-           << THIS_DRONE_NAME << ") Baslatiliyor =====" << std::endl;
-  std::cout << "===== Drone NRF24 Program (" << THIS_DRONE_NAME
-            << ") Baslatiliyor =====" << std::endl;
+  logMessage("===== Drone NRF24 Program (" + THIS_DRONE_NAME +
+             ") Baslatiliyor =====");
 
+  // 1. Create Drone object for this device
   Drone this_drone(0, false, THIS_DRONE_NAME);
+  this_drone.setNetworkId(THIS_DRONE_NETWORK_ID);
 
-  DroneIdType drone_network_id = 0; // Default
-#if defined(IS_DRONE_1)
-  drone_network_id = 1;
-#elif defined(IS_DRONE_2)
-  drone_network_id = 2;
-#endif
-  this_drone.setNetworkId(drone_network_id);
+  // Log and print drone info
+  std::string drone_info_msg = "--- Drone Bilgileri ---\n";
+  drone_info_msg += "  Isim: " + this_drone.getName() + "\n";
+  drone_info_msg +=
+      "  Ag ID: " +
+      (this_drone.getNetworkId()
+           ? std::to_string(static_cast<int>(*this_drone.getNetworkId()))
+           : "Atanmamis") +
+      "\n";
+  drone_info_msg += "  Icsel ID: " + std::to_string(this_drone.getId()) + "\n";
+  drone_info_msg +=
+      "  RSSI: " + std::to_string(static_cast<int>(this_drone.getRssi())) +
+      "\n";
+  drone_info_msg +=
+      "  Lider Durumu: " +
+      std::string(this_drone.isLeader() ? "Lider" : "Lider Degil");
+  logMessage(drone_info_msg);
+  // this_drone.printDroneInfo(); // This prints directly to cout, logMessage
+  // handles combined logging
 
-  log_file << "[" << getCurrentTimestamp() << "] --- Drone Bilgileri (Log) ---"
-           << std::endl;
-  log_file << "[" << getCurrentTimestamp()
-           << "]   İsim: " << this_drone.getName() << std::endl;
-  log_file << "[" << getCurrentTimestamp() << "]   Ağ ID: ";
-  if (this_drone.getNetworkId()) {
-    log_file << static_cast<int>(*(this_drone.getNetworkId()));
-  } else {
-    log_file << "Atanmamış";
-  }
-  log_file << std::endl;
-  log_file << "[" << getCurrentTimestamp() << "] ----------------------------"
-           << std::endl;
+  // 2. Initialize RF Communication
+  uint8_t rf_channel =
+      108; // RF Channel (0-125). MUST BE THE SAME ON ALL DRONES.
 
-  this_drone.printDroneInfo();
-  std::cout << std::endl;
+  std::string rf_setup_msg = "RF Haberlesmesi baslatiliyor...\n";
+  rf_setup_msg +=
+      "  Kanal: " + std::to_string(static_cast<int>(rf_channel)) + "\n";
 
-  uint8_t rf_channel = 108;
+  std::stringstream p0_addr_ss, target_addr_ss;
+  printRfAddress(p0_addr_ss, "", THIS_DRONE_LISTEN_ADDR_P0);
+  rf_setup_msg += "  Dinleme Adresi P0: " + p0_addr_ss.str() + "\n";
 
-  log_file << "[" << getCurrentTimestamp()
-           << "] RF Haberlesmesi baslatiliyor..." << std::endl;
-  log_file << "[" << getCurrentTimestamp()
-           << "]   Kanal: " << static_cast<int>(rf_channel) << std::endl;
-  std::cout << "RF Haberlesmesi baslatiliyor..." << std::endl;
-  std::cout << "  Kanal: " << static_cast<int>(rf_channel) << std::endl;
-
-  printRfAddress(log_file,
-                 "  Dinleme Adresi P0 (Log): ", THIS_DRONE_LISTEN_ADDR_P0);
-  log_file << std::endl;
-  printRfAddress(std::cout, "  Dinleme Adresi P0: ", THIS_DRONE_LISTEN_ADDR_P0);
-  std::cout << std::endl;
-
-  if (THIS_DRONE_LISTEN_ADDR_P1 != nullptr) { // Check if P1 is used
-    printRfAddress(log_file,
-                   "  Dinleme Adresi P1 (Log): ", THIS_DRONE_LISTEN_ADDR_P1);
-    log_file << std::endl;
-    printRfAddress(std::cout,
-                   "  Dinleme Adresi P1: ", THIS_DRONE_LISTEN_ADDR_P1);
-    std::cout << std::endl;
-  }
-
-  printRfAddress(log_file, "  Hedef Adres (Log): ", TARGET_DEVICE_ADDR);
-  log_file << std::endl;
-  printRfAddress(std::cout, "  Hedef Adres: ", TARGET_DEVICE_ADDR);
-  std::cout << std::endl;
+  printRfAddress(target_addr_ss, "", TARGET_DEVICE_ADDR);
+  rf_setup_msg += "  Hedef Adres: " + target_addr_ss.str();
+  logMessage(rf_setup_msg);
 
   if (!setupRFCommunication(rf_channel, THIS_DRONE_LISTEN_ADDR_P0,
                             THIS_DRONE_LISTEN_ADDR_P1)) {
-    uint32_t err_ts = getCurrentTimestamp();
-    log_file
-        << "[" << err_ts
-        << "] ANA HATA: RF Haberlesmesi baslatilamadi. Program sonlandiriliyor."
-        << std::endl;
-    std::cerr
-        << "ANA HATA: RF Haberlesmesi baslatilamadi. Program sonlandiriliyor."
-        << std::endl;
-    log_file.close();
-    return 1;
+    logMessage(
+        "ANA HATA: RF Haberlesmesi baslatilamadi. Program sonlandiriliyor.",
+        true);
+    if (log_file.is_open())
+      log_file.close();
+    return 1; // Exit if RF setup fails
   }
-  log_file << "[" << getCurrentTimestamp()
-           << "] RF Haberlesmesi basariyla baslatildi." << std::endl;
-  std::cout << "RF Haberlesmesi basariyla baslatildi." << std::endl;
+  logMessage("RF Haberlesmesi basariyla baslatildi.");
 
-  log_file << "[" << getCurrentTimestamp()
-           << "] printRadioDetails() cagriliyor (konsola yazacak)..."
-           << std::endl;
-  printRadioDetails();
-  log_file << "[" << getCurrentTimestamp() << "] printRadioDetails() cagrildi."
-           << std::endl;
-  std::cout << std::endl;
+  logMessage("printRadioDetails() cagriliyor (konsola yazacak)...");
+  printRadioDetails(); // This function from radio.cpp prints directly to
+                       // console (using printf)
+  logMessage("printRadioDetails() cagrildi.");
 
-  log_file << "[" << getCurrentTimestamp() << "] Ana dongu baslatiliyor..."
-           << std::endl;
-  std::cout << "Ana dongu baslatiliyor... (Ctrl+C ile cikabilirsiniz)"
-            << std::endl;
+  // 3. Main Loop
+  logMessage("Ana dongu baslatiliyor... (Ctrl+C ile cikabilirsiniz)");
   auto last_heartbeat_send_time = std::chrono::steady_clock::now();
-  const auto heartbeat_interval = std::chrono::seconds(5);
+  const auto heartbeat_interval =
+      std::chrono::seconds(5); // Send heartbeat every 5 seconds
 
   while (true) {
+    // === A. Check for and Process Incoming Packets ===
     uint8_t pipe_num_available;
     if (isDataAvailable(&pipe_num_available)) {
-      uint8_t received_data_buffer[32];
+      uint8_t received_data_buffer[32]; // NRF24 max payload size
       uint8_t received_len = 0;
 
       if (readData(received_data_buffer, sizeof(received_data_buffer),
                    received_len)) {
-        uint32_t recv_ts = getCurrentTimestamp();
-        log_file << "[" << recv_ts << "] Pipe "
-                 << static_cast<int>(pipe_num_available) << " uzerinden "
-                 << static_cast<int>(received_len) << " byte veri alindi."
-                 << std::endl;
-        std::cout << "[" << recv_ts << "] Pipe "
-                  << static_cast<int>(pipe_num_available) << " uzerinden "
-                  << static_cast<int>(received_len) << " byte veri alindi."
-                  << std::endl;
+        std::string received_msg_hdr =
+            "Pipe " + std::to_string(static_cast<int>(pipe_num_available)) +
+            " uzerinden " + std::to_string(static_cast<int>(received_len)) +
+            " byte veri alindi.";
+        logMessage(received_msg_hdr);
 
         if (received_len > 0 && received_len <= sizeof(received_data_buffer)) {
           PacketType type =
               *(reinterpret_cast<PacketType *>(received_data_buffer));
+          std::string packet_details_msg = "  Paket Tipi: ";
 
-          log_file << "  Paket Tipi: ";
-          std::cout << "  Paket Tipi: ";
           switch (type) {
           case PacketType::COMMAND: {
-            log_file << "COMMAND" << std::endl;
-            std::cout << "COMMAND" << std::endl;
+            packet_details_msg += "COMMAND\n";
             if (received_len >= sizeof(CommandPacket)) {
               const CommandPacket *pkt =
                   reinterpret_cast<const CommandPacket *>(received_data_buffer);
-              log_file << "    Hedef ID: "
-                       << static_cast<int>(pkt->target_drone_id)
-                       << ", Zaman: " << pkt->timestamp << ", Komut: '"
-                       << pkt->command << "'" << std::endl;
-              std::cout << "    Hedef ID: "
-                        << static_cast<int>(pkt->target_drone_id)
-                        << ", Zaman: " << pkt->timestamp << ", Komut: '"
-                        << pkt->command << "'" << std::endl;
+              packet_details_msg +=
+                  "    Hedef ID: " +
+                  std::to_string(static_cast<int>(pkt->target_drone_id)) +
+                  ", Zaman: " + std::to_string(pkt->timestamp) + ", Komut: '" +
+                  pkt->command + "'";
             } else {
-              log_file << "    Uyarı: Paket boyutu CommandPacket için yetersiz!"
-                       << std::endl;
-              std::cout
-                  << "    Uyarı: Paket boyutu CommandPacket için yetersiz!"
-                  << std::endl;
+              packet_details_msg +=
+                  "    Uyarı: Paket boyutu CommandPacket için yetersiz!";
             }
             break;
           }
           case PacketType::TELEMETRY: {
-            log_file << "TELEMETRY" << std::endl;
-            std::cout << "TELEMETRY" << std::endl;
+            packet_details_msg += "TELEMETRY\n";
             if (received_len >= sizeof(TelemetryPacket)) {
               const TelemetryPacket *pkt =
                   reinterpret_cast<const TelemetryPacket *>(
                       received_data_buffer);
-              log_file << "    Kaynak ID: "
-                       << static_cast<int>(pkt->source_drone_id)
-                       << ", Zaman: " << pkt->timestamp
-                       << ", İrtifa: " << pkt->altitude
-                       << ", Batarya: " << pkt->battery_voltage << std::endl;
-              std::cout << "    Kaynak ID: "
-                        << static_cast<int>(pkt->source_drone_id)
-                        << ", Zaman: " << pkt->timestamp
-                        << ", İrtifa: " << pkt->altitude
-                        << ", Batarya: " << pkt->battery_voltage << std::endl;
+              packet_details_msg +=
+                  "    Kaynak ID: " +
+                  std::to_string(static_cast<int>(pkt->source_drone_id)) +
+                  ", Zaman: " + std::to_string(pkt->timestamp) +
+                  ", İrtifa: " + std::to_string(pkt->altitude) +
+                  ", Batarya: " + std::to_string(pkt->battery_voltage);
             } else {
-              log_file
-                  << "    Uyarı: Paket boyutu TelemetryPacket için yetersiz!"
-                  << std::endl;
-              std::cout
-                  << "    Uyarı: Paket boyutu TelemetryPacket için yetersiz!"
-                  << std::endl;
+              packet_details_msg +=
+                  "    Uyarı: Paket boyutu TelemetryPacket için yetersiz!";
             }
             break;
           }
           case PacketType::HEARTBEAT: {
-            log_file << "HEARTBEAT" << std::endl;
-            std::cout << "HEARTBEAT" << std::endl;
+            packet_details_msg += "HEARTBEAT\n";
             if (received_len >= sizeof(HeartbeatPacket)) {
               const HeartbeatPacket *pkt =
                   reinterpret_cast<const HeartbeatPacket *>(
                       received_data_buffer);
-              log_file << "    Kaynak ID: "
-                       << static_cast<int>(pkt->source_drone_id)
-                       << ", Zaman: " << pkt->timestamp << std::endl;
-              std::cout << "    Kaynak ID: "
-                        << static_cast<int>(pkt->source_drone_id)
-                        << ", Zaman: " << pkt->timestamp << std::endl;
+              packet_details_msg +=
+                  "    Kaynak ID: " +
+                  std::to_string(static_cast<int>(pkt->source_drone_id)) +
+                  ", Zaman: " + std::to_string(pkt->timestamp);
             } else {
-              log_file
-                  << "    Uyarı: Paket boyutu HeartbeatPacket için yetersiz!"
-                  << std::endl;
-              std::cout
-                  << "    Uyarı: Paket boyutu HeartbeatPacket için yetersiz!"
-                  << std::endl;
+              packet_details_msg +=
+                  "    Uyarı: Paket boyutu HeartbeatPacket için yetersiz!";
             }
             break;
           }
+          // Add cases for other packet types (JOIN_REQUEST, etc.) if needed
           default:
-            log_file << "BILINMEYEN veya ISLENMEYEN (" << static_cast<int>(type)
-                     << ")" << std::endl;
-            std::cout << "BILINMEYEN veya ISLENMEYEN ("
-                      << static_cast<int>(type) << ")" << std::endl;
-            log_file << "    Ham Veri (max 8 byte): ";
-            std::cout << "    Ham Veri (max 8 byte): ";
+            packet_details_msg += "BILINMEYEN veya ISLENMEYEN (" +
+                                  std::to_string(static_cast<int>(type)) +
+                                  ")\n";
+            packet_details_msg += "    Ham Veri (max 8 byte): ";
+            std::stringstream hex_data_ss;
             for (uint8_t i = 0; i < std::min((uint8_t)8, received_len); ++i) {
-              log_file << std::hex << std::setfill('0') << std::setw(2)
-                       << (int)received_data_buffer[i] << " ";
-              std::cout << std::hex << std::setfill('0') << std::setw(2)
-                        << (int)received_data_buffer[i] << " ";
+              hex_data_ss << std::hex << std::setfill('0') << std::setw(2)
+                          << (int)received_data_buffer[i] << " ";
             }
-            log_file << std::dec << std::endl;
-            std::cout << std::dec << std::endl;
+            packet_details_msg += hex_data_ss.str();
             break;
           }
+          logMessage(packet_details_msg);
         }
       } else {
-        uint32_t read_err_ts = getCurrentTimestamp();
-        log_file << "[" << read_err_ts
-                 << "] Veri okuma hatasi (readData false döndürdü)."
-                 << std::endl;
+        logMessage("Veri okuma hatasi (readData false döndürdü).", true);
       }
     }
 
+    // === B. Periodically Send Heartbeat Packet ===
     auto current_time = std::chrono::steady_clock::now();
     if (current_time - last_heartbeat_send_time >= heartbeat_interval) {
       last_heartbeat_send_time = current_time;
 
-      if (this_drone.getNetworkId() &&
-          TARGET_DEVICE_ADDR != nullptr) { // Check if target is defined
+      if (this_drone.getNetworkId() && TARGET_DEVICE_ADDR != nullptr) {
         HeartbeatPacket hb_pkt;
+        // hb_pkt.type is set by default in struct definition
         hb_pkt.source_drone_id = this_drone.getNetworkId().value();
         hb_pkt.timestamp = getCurrentTimestamp();
 
-        uint32_t hb_ts = hb_pkt.timestamp;
-
-        log_file << "[" << hb_ts << "] Heartbeat (" << this_drone.getName()
-                 << " ID:" << static_cast<int>(hb_pkt.source_drone_id)
-                 << ") gonderiliyor -> ";
-        printRfAddress(log_file, "", TARGET_DEVICE_ADDR);
-        log_file << " ... ";
-
-        std::cout << "[" << hb_ts << "] Heartbeat (" << this_drone.getName()
-                  << " ID:" << static_cast<int>(hb_pkt.source_drone_id)
-                  << ") gonderiliyor -> ";
-        printRfAddress(std::cout, "", TARGET_DEVICE_ADDR);
-        std::cout << " ... ";
+        std::stringstream target_addr_ss_hb;
+        printRfAddress(target_addr_ss_hb, "", TARGET_DEVICE_ADDR);
+        std::string hb_send_msg =
+            "Heartbeat (" + this_drone.getName() +
+            " ID:" + std::to_string(static_cast<int>(hb_pkt.source_drone_id)) +
+            ") gonderiliyor -> " + target_addr_ss_hb.str() + " ... ";
 
         if (sendHeartbeatPacket(hb_pkt, TARGET_DEVICE_ADDR)) {
-          log_file << "Basarili." << std::endl;
-          std::cout << "Basarili." << std::endl;
+          hb_send_msg += "Basarili.";
         } else {
-          log_file << "HATA!" << std::endl;
-          std::cout << "HATA!" << std::endl;
+          hb_send_msg += "HATA!";
         }
+        logMessage(
+            hb_send_msg,
+            !sendHeartbeatPacket(
+                hb_pkt, TARGET_DEVICE_ADDR)); // Log as error if send failed
       }
     }
 
+    // === C. Other Operations (e.g., sensor reading, command input) ===
+    // Placeholder for future logic
+
+    // Short delay to prevent busy-waiting and reduce CPU load
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
 
-  uint32_t ts_end = getCurrentTimestamp();
-  log_file << "[" << ts_end << "] Program (" << THIS_DRONE_NAME
-           << ") sonlandiriliyor." << std::endl;
-  std::cout << "Program (" << THIS_DRONE_NAME << ") sonlandiriliyor."
-            << std::endl;
-
-  log_file.close();
+  logMessage("Program (" + THIS_DRONE_NAME + ") sonlandiriliyor.");
+  if (log_file.is_open()) {
+    log_file.close();
+  }
   return 0;
 }
