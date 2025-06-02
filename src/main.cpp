@@ -270,7 +270,7 @@ int main() {
     if (current_time - last_heartbeat_send_time >= heartbeat_interval) {
       last_heartbeat_send_time = current_time;
 
-      if (this_drone.getNetworkId() && TARGET_DEVICE_ADDR != nullptr) {
+      if (this_drone.getNetworkId()) {
         HeartbeatPacket hb_pkt;
         // hb_pkt.type is set by default in struct definition
         hb_pkt.source_drone_id = this_drone.getNetworkId().value();
