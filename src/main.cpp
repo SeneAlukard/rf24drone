@@ -117,7 +117,6 @@ int main() {
     log_file << "Atanmamış";
   }
   log_file << std::endl;
-  // Add other drone info to log if needed (ID, RSSI, Leader status)
   log_file << "[" << getCurrentTimestamp() << "] ----------------------------"
            << std::endl;
 
@@ -139,7 +138,7 @@ int main() {
   printRfAddress(std::cout, "  Dinleme Adresi P0: ", THIS_DRONE_LISTEN_ADDR_P0);
   std::cout << std::endl;
 
-  if (THIS_DRONE_LISTEN_ADDR_P1 != nullptr) {
+  if (THIS_DRONE_LISTEN_ADDR_P1 != nullptr) { // Check if P1 is used
     printRfAddress(log_file,
                    "  Dinleme Adresi P1 (Log): ", THIS_DRONE_LISTEN_ADDR_P1);
     log_file << std::endl;
@@ -283,16 +282,6 @@ int main() {
             }
             break;
           }
-          // ... (other packet types: JOIN_REQUEST, JOIN_RESPONSE,
-          // LEADER_ANNOUNCEMENT, LEADER_REQUEST) Add cases for these if they
-          // are expected and need specific logging. E.g.:
-          /*
-          case PacketType::JOIN_REQUEST:
-            log_file << "JOIN_REQUEST" << std::endl;
-            std::cout << "JOIN_REQUEST" << std::endl;
-            // Add specific logging for JoinRequestPacket fields
-            break;
-          */
           default:
             log_file << "BILINMEYEN veya ISLENMEYEN (" << static_cast<int>(type)
                      << ")" << std::endl;
@@ -323,7 +312,8 @@ int main() {
     if (current_time - last_heartbeat_send_time >= heartbeat_interval) {
       last_heartbeat_send_time = current_time;
 
-      if (this_drone.getNetworkId()) {
+      if (this_drone.getNetworkId() &&
+          TARGET_DEVICE_ADDR != nullptr) { // Check if target is defined
         HeartbeatPacket hb_pkt;
         hb_pkt.source_drone_id = this_drone.getNetworkId().value();
         hb_pkt.timestamp = getCurrentTimestamp();
