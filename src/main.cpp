@@ -1,5 +1,5 @@
 #include <chrono>  // Zaman damgaları ve beklemeler için
-#include <fstream> // Added for file logging
+#include <fstream> // For file logging
 #include <iomanip> // std::hex, std::setfill, std::setw için (adres yazdırmada)
 #include <iostream>
 #include <optional> // std::optional için
@@ -7,15 +7,55 @@
 #include <thread> // std::this_thread::sleep_for için
 #include <vector>
 
-#include "drone.hpp" // Kendi Drone sınıfımız
-#include "radio.hpp" // Radyo haberleşme fonksiyonlarımız
-// packets.hpp, radio.hpp tarafından zaten dahil ediliyor, ancak doğrudan
-// kullanıyorsak açıkça eklemek iyi bir pratiktir.
+#include "drone.hpp"   // Kendi Drone sınıfımız
 #include "packets.hpp" // Paket tanımlamalarımız
+#include "radio.hpp"   // Radyo haberleşme fonksiyonlarımız
+
+// --- Drone Identity Configuration ---
+// Define which drone this instance is. Uncomment ONE of the following lines.
+// For the first drone, uncomment #define IS_DRONE_1
+// For the second drone, uncomment #define IS_DRONE_2
+// Then compile and run on the respective drone.
+#define IS_DRONE_1
+// #define IS_DRONE_2
+// ----------------------------------
+
+// --- RF Address Definitions for Two Drones ---
+// Ensure these are unique for your pair of drones.
+const uint8_t DRONE1_LISTEN_ADDRESS[RF24_ADDRESS_WIDTH] = {0xE1, 0xE1, 0xE1,
+                                                           0xE1, 0xE1};
+const uint8_t DRONE2_LISTEN_ADDRESS[RF24_ADDRESS_WIDTH] = {0xD2, 0xD2, 0xD2,
+                                                           0xD2, 0xD2};
+// --------------------------------------------
+
+// --- Conditionally Set Addresses and Drone Name ---
+#if defined(IS_DRONE_1)
+const uint8_t *const THIS_DRONE_LISTEN_ADDR_P0 = DRONE1_LISTEN_ADDRESS;
+const uint8_t *const THIS_DRONE_LISTEN_ADDR_P1 =
+    nullptr; // Not using P1 for this example
+const uint8_t *const TARGET_DEVICE_ADDR =
+    DRONE2_LISTEN_ADDRESS; // Drone 1 sends to Drone 2
+std::string THIS_DRONE_NAME = "Drone-Alpha";
+#elif defined(IS_DRONE_2)
+const uint8_t *const THIS_DRONE_LISTEN_ADDR_P0 = DRONE2_LISTEN_ADDRESS;
+const uint8_t *const THIS_DRONE_LISTEN_ADDR_P1 =
+    nullptr; // Not using P1 for this example
+const uint8_t *const TARGET_DEVICE_ADDR =
+    DRONE1_LISTEN_ADDRESS; // Drone 2 sends to Drone 1
+std::string THIS_DRONE_NAME = "Drone-Beta";
+#else
+#error                                                                         \
+    "Drone identity not defined! Please define IS_DRONE_1 or IS_DRONE_2 at the top of main.cpp."
+// Default fallback to prevent compilation errors, but communication will likely
+// fail.
+const uint8_t *const THIS_DRONE_LISTEN_ADDR_P0 = DRONE1_LISTEN_ADDRESS;
+const uint8_t *const THIS_DRONE_LISTEN_ADDR_P1 = nullptr;
+const uint8_t *const TARGET_DEVICE_ADDR = DRONE2_LISTEN_ADDRESS;
+std::string THIS_DRONE_NAME = "Drone-Default";
+#endif
+// -------------------------------------------------
 
 // --- Yardımcı Fonksiyonlar ---
-
-// Mevcut zaman damgasını milisaniye cinsinden almak için basit bir fonksiyon
 uint32_t getCurrentTimestamp() {
   return static_cast<uint32_t>(
       std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -23,8 +63,6 @@ uint32_t getCurrentTimestamp() {
           .count());
 }
 
-// Bir RF adresini okunabilir formatta yazdırmak için yardımcı fonksiyon
-// MODIFIED to take an ostream
 void printRfAddress(std::ostream &out, const char *label,
                     const uint8_t *address) {
   out << label;
@@ -38,53 +76,40 @@ void printRfAddress(std::ostream &out, const char *label,
   } else {
     out << "NULL";
   }
-  out << std::dec; // Onluk sayı sistemine geri dön
+  out << std::dec;
 }
 
-// --- Örnek RF Adresleri ---
-// Not: Bu adresler normalde radio.cpp içinde tanımlanıp radio.hpp'de extern
-// olarak bildirilmeli veya bir konfigürasyon sistemi ile yönetilmelidir. Bu
-// main.cpp örneği için burada tanımlıyoruz.
-const uint8_t THIS_DRONE_LISTEN_ADDR_P0[RF24_ADDRESS_WIDTH] = {
-    0xE8, 0xE8, 0xF0, 0xF0, 0xE1}; // Bu drone'un P0'da dinleyeceği adres
-const uint8_t THIS_DRONE_LISTEN_ADDR_P1[RF24_ADDRESS_WIDTH] = {
-    0xC1, 0xC2, 0xC3, 0xC4,
-    0xC5}; // Bu drone'un P1'de dinleyeceği adres (örn: broadcast)
-const uint8_t TARGET_DEVICE_ADDR[RF24_ADDRESS_WIDTH] = {
-    0xA1, 0xB2, 0xC3, 0xD4,
-    0xE5}; // Veri gönderilecek örnek hedef adres (örn: Yer İstasyonu)
-
 int main() {
-  std::ofstream log_file("drone_log.txt",
-                         std::ios::app); // Open log file in append mode
+  std::ofstream log_file("drone_log.txt", std::ios::app);
 
   if (!log_file.is_open()) {
     std::cerr << "FATAL ERROR: Could not open log file 'drone_log.txt'!"
               << std::endl;
     std::cout << "FATAL ERROR: Could not open log file 'drone_log.txt'!"
               << std::endl;
-    return 1; // Exit if log file cannot be opened
+    return 1;
   }
 
   uint32_t ts_start = getCurrentTimestamp();
-  log_file << "[" << ts_start
-           << "] ===== Drone NRF24 Programi Baslatiliyor =====" << std::endl;
-  std::cout << "===== Drone NRF24 Programi Baslatiliyor =====" << std::endl;
+  log_file << "[" << ts_start << "] ===== Drone NRF24 Program ("
+           << THIS_DRONE_NAME << ") Baslatiliyor =====" << std::endl;
+  std::cout << "===== Drone NRF24 Program (" << THIS_DRONE_NAME
+            << ") Baslatiliyor =====" << std::endl;
 
-  // 1. Bu cihaz için bir Drone nesnesi oluştur
-  Drone this_drone(0, false,
-                   "Drone-001"); // initial_rssi, is_leader_init, initial_name
+  Drone this_drone(0, false, THIS_DRONE_NAME);
 
-  // Simülasyon: Bu drone'a bir ağ ID'si atandığını varsayalım (gerçekte
-  // JoinResponse ile gelir)
-  DroneIdType drone_network_id = 1; // packets.hpp'den DroneIdType
+  DroneIdType drone_network_id = 0; // Default
+#if defined(IS_DRONE_1)
+  drone_network_id = 1;
+#elif defined(IS_DRONE_2)
+  drone_network_id = 2;
+#endif
   this_drone.setNetworkId(drone_network_id);
 
-  // Log drone info to file
   log_file << "[" << getCurrentTimestamp() << "] --- Drone Bilgileri (Log) ---"
            << std::endl;
   log_file << "[" << getCurrentTimestamp()
-           << "]   İçsel ID: " << this_drone.getId() << std::endl;
+           << "]   İsim: " << this_drone.getName() << std::endl;
   log_file << "[" << getCurrentTimestamp() << "]   Ağ ID: ";
   if (this_drone.getNetworkId()) {
     log_file << static_cast<int>(*(this_drone.getNetworkId()));
@@ -92,21 +117,14 @@ int main() {
     log_file << "Atanmamış";
   }
   log_file << std::endl;
-  log_file << "[" << getCurrentTimestamp()
-           << "]   İsim: " << this_drone.getName() << std::endl;
-  log_file << "[" << getCurrentTimestamp()
-           << "]   RSSI: " << static_cast<int>(this_drone.getRssi())
-           << std::endl;
-  log_file << "[" << getCurrentTimestamp() << "]   Lider Durumu: "
-           << (this_drone.isLeader() ? "Lider" : "Lider Değil") << std::endl;
+  // Add other drone info to log if needed (ID, RSSI, Leader status)
   log_file << "[" << getCurrentTimestamp() << "] ----------------------------"
            << std::endl;
 
-  this_drone.printDroneInfo(); // Keep console output for drone info
+  this_drone.printDroneInfo();
   std::cout << std::endl;
 
-  // 2. RF Haberleşmesini Başlat
-  uint8_t rf_channel = 108; // Kullanılacak RF kanalı (0-125)
+  uint8_t rf_channel = 108;
 
   log_file << "[" << getCurrentTimestamp()
            << "] RF Haberlesmesi baslatiliyor..." << std::endl;
@@ -115,23 +133,24 @@ int main() {
   std::cout << "RF Haberlesmesi baslatiliyor..." << std::endl;
   std::cout << "  Kanal: " << static_cast<int>(rf_channel) << std::endl;
 
-  // Log and print listening addresses
   printRfAddress(log_file,
                  "  Dinleme Adresi P0 (Log): ", THIS_DRONE_LISTEN_ADDR_P0);
   log_file << std::endl;
   printRfAddress(std::cout, "  Dinleme Adresi P0: ", THIS_DRONE_LISTEN_ADDR_P0);
   std::cout << std::endl;
 
-  printRfAddress(log_file,
-                 "  Dinleme Adresi P1 (Log): ", THIS_DRONE_LISTEN_ADDR_P1);
-  log_file << std::endl;
-  printRfAddress(std::cout, "  Dinleme Adresi P1: ", THIS_DRONE_LISTEN_ADDR_P1);
-  std::cout << std::endl;
+  if (THIS_DRONE_LISTEN_ADDR_P1 != nullptr) {
+    printRfAddress(log_file,
+                   "  Dinleme Adresi P1 (Log): ", THIS_DRONE_LISTEN_ADDR_P1);
+    log_file << std::endl;
+    printRfAddress(std::cout,
+                   "  Dinleme Adresi P1: ", THIS_DRONE_LISTEN_ADDR_P1);
+    std::cout << std::endl;
+  }
 
-  printRfAddress(log_file,
-                 "  Varsayilan Hedef Adres (Log): ", TARGET_DEVICE_ADDR);
+  printRfAddress(log_file, "  Hedef Adres (Log): ", TARGET_DEVICE_ADDR);
   log_file << std::endl;
-  printRfAddress(std::cout, "  Varsayilan Hedef Adres: ", TARGET_DEVICE_ADDR);
+  printRfAddress(std::cout, "  Hedef Adres: ", TARGET_DEVICE_ADDR);
   std::cout << std::endl;
 
   if (!setupRFCommunication(rf_channel, THIS_DRONE_LISTEN_ADDR_P0,
@@ -154,26 +173,22 @@ int main() {
   log_file << "[" << getCurrentTimestamp()
            << "] printRadioDetails() cagriliyor (konsola yazacak)..."
            << std::endl;
-  printRadioDetails(); // radio.cpp'deki fonksiyonu çağır - output to console
-                       // via printf
+  printRadioDetails();
   log_file << "[" << getCurrentTimestamp() << "] printRadioDetails() cagrildi."
            << std::endl;
   std::cout << std::endl;
 
-  // 3. Ana Döngü
   log_file << "[" << getCurrentTimestamp() << "] Ana dongu baslatiliyor..."
            << std::endl;
   std::cout << "Ana dongu baslatiliyor... (Ctrl+C ile cikabilirsiniz)"
             << std::endl;
   auto last_heartbeat_send_time = std::chrono::steady_clock::now();
-  const auto heartbeat_interval =
-      std::chrono::seconds(5); // Her 5 saniyede bir heartbeat
+  const auto heartbeat_interval = std::chrono::seconds(5);
 
   while (true) {
-    // === A. Gelen Paketleri Kontrol Et ve İşle ===
     uint8_t pipe_num_available;
     if (isDataAvailable(&pipe_num_available)) {
-      uint8_t received_data_buffer[32]; // NRF24 maksimum payload boyutu
+      uint8_t received_data_buffer[32];
       uint8_t received_len = 0;
 
       if (readData(received_data_buffer, sizeof(received_data_buffer),
@@ -268,6 +283,16 @@ int main() {
             }
             break;
           }
+          // ... (other packet types: JOIN_REQUEST, JOIN_RESPONSE,
+          // LEADER_ANNOUNCEMENT, LEADER_REQUEST) Add cases for these if they
+          // are expected and need specific logging. E.g.:
+          /*
+          case PacketType::JOIN_REQUEST:
+            log_file << "JOIN_REQUEST" << std::endl;
+            std::cout << "JOIN_REQUEST" << std::endl;
+            // Add specific logging for JoinRequestPacket fields
+            break;
+          */
           default:
             log_file << "BILINMEYEN veya ISLENMEYEN (" << static_cast<int>(type)
                      << ")" << std::endl;
@@ -291,12 +316,9 @@ int main() {
         log_file << "[" << read_err_ts
                  << "] Veri okuma hatasi (readData false döndürdü)."
                  << std::endl;
-        // std::cerr << "Veri okuma hatasi (readData false döndürdü)." <<
-        // std::endl; // Optional console
       }
     }
 
-    // === B. Periyodik Olarak Heartbeat Paketi Gönder ===
     auto current_time = std::chrono::steady_clock::now();
     if (current_time - last_heartbeat_send_time >= heartbeat_interval) {
       last_heartbeat_send_time = current_time;
@@ -306,15 +328,18 @@ int main() {
         hb_pkt.source_drone_id = this_drone.getNetworkId().value();
         hb_pkt.timestamp = getCurrentTimestamp();
 
-        uint32_t hb_ts =
-            hb_pkt.timestamp; // Use packet's timestamp for logging consistency
+        uint32_t hb_ts = hb_pkt.timestamp;
 
-        log_file << "[" << hb_ts << "] Heartbeat gonderiliyor -> ";
-        printRfAddress(log_file, "", TARGET_DEVICE_ADDR); // Log address
+        log_file << "[" << hb_ts << "] Heartbeat (" << this_drone.getName()
+                 << " ID:" << static_cast<int>(hb_pkt.source_drone_id)
+                 << ") gonderiliyor -> ";
+        printRfAddress(log_file, "", TARGET_DEVICE_ADDR);
         log_file << " ... ";
 
-        std::cout << "[" << hb_ts << "] Heartbeat gonderiliyor -> ";
-        printRfAddress(std::cout, "", TARGET_DEVICE_ADDR); // Console address
+        std::cout << "[" << hb_ts << "] Heartbeat (" << this_drone.getName()
+                  << " ID:" << static_cast<int>(hb_pkt.source_drone_id)
+                  << ") gonderiliyor -> ";
+        printRfAddress(std::cout, "", TARGET_DEVICE_ADDR);
         std::cout << " ... ";
 
         if (sendHeartbeatPacket(hb_pkt, TARGET_DEVICE_ADDR)) {
@@ -327,15 +352,14 @@ int main() {
       }
     }
 
-    // === C. Diğer İşlemler ===
-    // (No changes here for logging unless specific actions are added)
-
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
 
   uint32_t ts_end = getCurrentTimestamp();
-  log_file << "[" << ts_end << "] Program sonlandiriliyor." << std::endl;
-  std::cout << "Program sonlandiriliyor." << std::endl;
+  log_file << "[" << ts_end << "] Program (" << THIS_DRONE_NAME
+           << ") sonlandiriliyor." << std::endl;
+  std::cout << "Program (" << THIS_DRONE_NAME << ") sonlandiriliyor."
+            << std::endl;
 
   log_file.close();
   return 0;
