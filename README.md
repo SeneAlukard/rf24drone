@@ -1,4 +1,4 @@
-# rf24server
+# rf24drone
 
 A C++ ground base station program for communicating with NRF24L01+ drones over RF.  
 Built with modular CMake structure and supports automatic leader selection, telemetry polling, and debug printing.
