@@ -28,7 +28,7 @@ int main() {
   Drone drone(radio, is_leader);
 
   if (is_leader) {
-    radio.setAddress(0xF0F0F0F0D2LL, 0xF0F0F0F0E1LL);
+    radio.setAddress(0xF0F0F0F0E1LL, 0xF0F0F0F0D2LL);
     std::vector<DroneIdType> drone_ids = {1, 2, 3}; // örnek id’ler
     size_t current = 0;
 
