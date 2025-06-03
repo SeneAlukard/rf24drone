@@ -1,8 +1,10 @@
 #pragma once
 
 #include "packets.hpp"
-#include <RF24/RF24.h>
+#include <RF24.h>
+#include <array>
 #include <cstdint>
+#include <optional>
 
 enum class RadioDataRate {
   LOW_RATE,
@@ -27,4 +29,5 @@ private:
   RF24 radio;
   uint64_t tx_address = 0;
   uint64_t rx_address = 0;
+  std::optional<std::array<uint8_t, 32>> peek_buffer;
 };
