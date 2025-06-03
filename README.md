@@ -45,7 +45,7 @@ cmake ..
 make
 ```
 
-This will generate the executable `gbs_program` in the `build/` directory.
+This will generate the executable `drone` in the `build/` directory.
 
 ### 3. (Optional) Symlink compile_commands.json
 
@@ -62,13 +62,13 @@ ln -sf build/compile_commands.json .
 From the build folder:
 
 ```bash
-./gbs_program
+./drone
 ```
 
 Or from the root:
 
 ```bash
-./build/gbs_program
+./build/drone
 ```
 
 ---
