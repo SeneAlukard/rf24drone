@@ -2,11 +2,11 @@
 #include "packets.hpp"
 #include "radio.hpp"
 #include <chrono>
+#include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <iostream>
 #include <thread>
-#include <cstdlib>
 
 #define CE_PIN 22
 #define CSN_PIN 10
@@ -30,7 +30,10 @@ int main() {
   JoinRequestPacket join{};
   join.timestamp = static_cast<uint32_t>(std::time(nullptr));
   join.temp_id = drone.getTempId();
-  std::strncpy(join.requested_name, drone.getName().c_str(), MAX_NODE_NAME_LENGTH);
+  std::strncpy(join.requested_name, drone.getName().c_str(),
+               MAX_NODE_NAME_LENGTH - 1);
+  join.requested_name[MAX_NODE_NAME_LENGTH - 1] = '\0';
+
   radio.send(&join, sizeof(join));
   std::cout << "JoinRequest gönderildi, yanıt bekleniyor..." << std::endl;
 
@@ -100,4 +103,3 @@ int main() {
 
   return 0;
 }
-
