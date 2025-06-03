@@ -25,6 +25,7 @@ int main() {
 
   if (is_leader) {
     std::cout << "Lider modunda başlatılıyor..." << std::endl;
+    radio.setAddress(0xF0F0F0F0E1LL, 0xF0F0F0F0D2LL);
 
     PermissionToSendPacket packet;
     packet.type = PacketType::PERMISSION_TO_SEND;
