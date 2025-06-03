@@ -31,5 +31,7 @@ private:
   RF24 radio;
   uint64_t tx_address = 0;
   uint64_t rx_address = 0;
-  std::optional<std::array<uint8_t, 32>> peek_buffer;
+  // Holds the latest packet when it was peeked so that it can be
+  // retrieved again on the next receive call.
+  std::optional<std::array<uint8_t, 32>> cached_packet;
 };

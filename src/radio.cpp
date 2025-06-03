@@ -54,10 +54,24 @@ bool RadioInterface::send(const void *data, size_t size) {
 }
 
 bool RadioInterface::receive(void *data, size_t size, bool peekOnly) {
-  if (peek_buffer) {
-    std::memcpy(data, peek_buffer->data(), size);
-    if (!peekOnly)
-      peek_buffer.reset();
+  if (peekOnly) {
+    if (cached_packet) {
+      std::memcpy(data, cached_packet->data(), size);
+      return true;
+    }
+
+    if (!radio.available())
+      return false;
+
+    cached_packet.emplace();
+    radio.read(cached_packet->data(), cached_packet->size());
+    std::memcpy(data, cached_packet->data(), size);
+    return true;
+  }
+
+  if (cached_packet) {
+    std::memcpy(data, cached_packet->data(), size);
+    cached_packet.reset();
     return true;
   }
 
@@ -66,11 +80,7 @@ bool RadioInterface::receive(void *data, size_t size, bool peekOnly) {
 
   std::array<uint8_t, 32> buffer{};
   radio.read(buffer.data(), buffer.size());
-
   std::memcpy(data, buffer.data(), size);
-
-  if (peekOnly)
-    peek_buffer = buffer;
-
+  cached_packet.reset();
   return true;
 }
