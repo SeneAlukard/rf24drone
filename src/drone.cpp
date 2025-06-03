@@ -3,6 +3,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <queue>
+#include <array>
 
 Drone::Drone(RadioInterface &radio_ref, bool is_leader_init,
              const std::string &initial_name)
@@ -10,6 +12,7 @@ Drone::Drone(RadioInterface &radio_ref, bool is_leader_init,
   std::srand(static_cast<unsigned int>(std::time(nullptr)));
   temp_id_ = static_cast<DroneIdType>(std::rand() % 200 + 1); // 1–200 arası
   telemetry = TelemetryPacket{}; // güvenli sıfırlama
+  rx_queue_ = {};
 }
 
 DroneIdType Drone::getTempId() const { return temp_id_; }
@@ -44,6 +47,40 @@ void Drone::updateSensors(int16_t ax, int16_t ay, int16_t az, int16_t gx,
   telemetry.altitude = altitude;
 }
 
+size_t Drone::packetSize(PacketType type) const {
+  switch (type) {
+  case PacketType::COMMAND:
+    return sizeof(CommandPacket);
+  case PacketType::TELEMETRY:
+    return sizeof(TelemetryPacket);
+  case PacketType::JOIN_REQUEST:
+    return sizeof(JoinRequestPacket);
+  case PacketType::JOIN_RESPONSE:
+    return sizeof(JoinResponsePacket);
+  case PacketType::HEARTBEAT:
+    return sizeof(HeartbeatPacket);
+  case PacketType::LEADER_ANNOUNCEMENT:
+    return sizeof(LeaderAnnouncementPacket);
+  case PacketType::PERMISSION_TO_SEND:
+    return sizeof(PermissionToSendPacket);
+  case PacketType::LEADER_REQUEST:
+    return sizeof(LeaderRequestPacket);
+  default:
+    return sizeof(PacketType);
+  }
+}
+
+void Drone::pollRadio() {
+  PacketType peek;
+  while (radio.receive(&peek, sizeof(PacketType), true)) {
+    RawPacket pkt{};
+    pkt.type = peek;
+    pkt.size = packetSize(peek);
+    radio.receive(pkt.data.data(), pkt.size);
+    rx_queue_.push(pkt);
+  }
+}
+
 void Drone::sendTelemetry() {
   if (!has_permission_to_send_)
     return;
@@ -53,33 +90,47 @@ void Drone::sendTelemetry() {
 }
 
 void Drone::handleIncoming() {
-  PacketType type;
-  if (!radio.receive(&type, sizeof(PacketType), /*peekOnly=*/true))
-    return;
+  pollRadio();
 
-  switch (type) {
-  case PacketType::COMMAND: {
-    CommandPacket cmd;
-    if (radio.receive(&cmd, sizeof(cmd)))
-      handleCommand(cmd);
-    break;
-  }
-  case PacketType::PERMISSION_TO_SEND: {
-    PermissionToSendPacket perm;
-    if (radio.receive(&perm, sizeof(perm))) {
-      if (perm.target_drone_id == network_id_.value_or(temp_id_))
-        has_permission_to_send_ = true;
+  while (!rx_queue_.empty()) {
+    RawPacket pkt = rx_queue_.front();
+    rx_queue_.pop();
+
+    switch (pkt.type) {
+    case PacketType::COMMAND: {
+      if (pkt.size == sizeof(CommandPacket)) {
+        CommandPacket cmd{};
+        std::memcpy(&cmd, pkt.data.data(), sizeof(cmd));
+        handleCommand(cmd);
+      }
+      break;
     }
-    break;
-  }
-  default:
-    break;
+    case PacketType::PERMISSION_TO_SEND: {
+      if (pkt.size == sizeof(PermissionToSendPacket)) {
+        PermissionToSendPacket perm{};
+        std::memcpy(&perm, pkt.data.data(), sizeof(perm));
+        if (perm.target_drone_id == network_id_.value_or(temp_id_))
+          has_permission_to_send_ = true;
+      }
+      break;
+    }
+    default:
+      break;
+    }
   }
 }
 
 void Drone::handleCommand(const CommandPacket &cmd) {
-  std::cout << "[Komut] Drone " << static_cast<int>(cmd.target_drone_id)
-            << " → ";
+  DroneIdType self_id = network_id_.value_or(temp_id_);
+  uint32_t now = static_cast<uint32_t>(std::time(nullptr));
+
+  if (cmd.target_drone_id != self_id)
+    return;
+
+  if (now - cmd.timestamp > 3)
+    return; // gecikmesi 3 saniyeden büyükse yoksay
+
+  std::cout << "[Komut] " << cmd.command << std::endl;
 }
 
 void Drone::printDroneInfo() const {

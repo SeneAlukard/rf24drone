@@ -105,6 +105,13 @@ Bu sistem, nRF24L01 donanımıyla çalışan, kimliği atanmış droneların:
   - RX boşalana kadar beklenir
   - Sonra TX yapılır ve RX tekrar açılır
 
+## 📨 Telemetri Gönderim İzni
+
+- Tam çift yönlü haberleşme imkanımız olmadığından,
+  drone'lar telemetri paketlerini ancak yer istasyonundan
+  gelen `PermissionToSend` paketinden sonra yollar.
+- Bu mekanizma TX/RX çakışmasını önler.
+
 ---
 
 ## ❌ Bilinçli Olarak Eklenmeyenler
