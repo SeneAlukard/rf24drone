@@ -1,4 +1,5 @@
 #include "../include/radio.hpp"
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 
@@ -64,7 +65,8 @@ bool RadioInterface::receive(void *data, size_t size, bool peekOnly) {
       return false;
 
     cached_packet.emplace();
-    radio.read(cached_packet->data(), cached_packet->size());
+    radio.read(cached_packet->data(),
+               static_cast<uint8_t>(cached_packet->size()));
     std::memcpy(data, cached_packet->data(), size);
     return true;
   }
