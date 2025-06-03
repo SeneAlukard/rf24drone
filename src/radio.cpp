@@ -5,6 +5,9 @@
 RadioInterface::RadioInterface(uint8_t cePin, uint8_t csnPin)
     : radio(cePin, csnPin) {}
 
+RadioInterface::RadioInterface(uint8_t cePin, uint8_t csnPin, uint8_t spiPort)
+    : radio(cePin, csnPin, spiPort) {}
+
 bool RadioInterface::begin() {
   if (!radio.begin())
     return false;

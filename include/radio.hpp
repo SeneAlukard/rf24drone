@@ -14,7 +14,9 @@ enum class RadioDataRate {
 
 class RadioInterface {
 public:
-  RadioInterface(uint8_t cePin, uint8_t csnPin);
+  RadioInterface(uint8_t cePin, uint8_t csnPin); // for default SPI BUS
+  RadioInterface(uint8_t cePin, uint8_t csnPin,
+                 uint8_t spiPort); // for custom SPI BUS
 
   bool begin();
   void setAddress(uint64_t tx, uint64_t rx);

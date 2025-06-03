@@ -8,9 +8,10 @@
 
 #define CE_PIN 22
 #define CSN_PIN 0
+#define SPI_PORT 1
 
 int main() {
-  RadioInterface radio(CE_PIN, CSN_PIN);
+  RadioInterface radio(CE_PIN, CSN_PIN, SPI_PORT);
 
   if (!radio.begin()) {
     std::cerr << "Radio başlatılamadı!\n";
