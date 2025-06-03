@@ -4,7 +4,6 @@
 #include <ctime>
 #include <iostream>
 #include <thread>
-#include <unistd.h>
 #include <vector>
 
 #define CE_PIN 22
@@ -43,8 +42,14 @@ int main() {
                 << " için izin gönderildi: " << (sent ? "EVET" : "HAYIR")
                 << std::endl;
 
+      auto listen_end = std::chrono::steady_clock::now() +
+                        std::chrono::milliseconds(1000);
+      while (std::chrono::steady_clock::now() < listen_end) {
+        drone.handleIncoming();
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+      }
+
       current = (current + 1) % drone_ids.size();
-      std::this_thread::sleep_for(std::chrono::seconds(1));
     }
   } else {
     while (true) {
