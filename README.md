@@ -34,6 +34,7 @@ Built with modular CMake structure and supports automatic leader selection, tele
 ```bash
 git clone git@github.com:SeneAlukard/rf24drone.git
 cd rf24drone
+git submodule update --init --recursive
 ```
 
 ### 2. Build with CMake
