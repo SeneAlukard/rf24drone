@@ -1,12 +1,11 @@
 #pragma once
 
 #include <cstddef>
-#include <cstdint> // Standart integer tipleri için (uint8_t, uint16_t, vb.)
+#include <cstdint>
 
-// --- ID Tipi Tanımı ---
-using DroneIdType = uint8_t; // Drone ID'si için 8-bit unsigned integer
+using DroneIdType = uint8_t;
+// ==================== Packet Types ==================== //
 
-// --- Paket Tipleri Enum ---
 enum class PacketType : uint8_t {
   UNDEFINED = 0,
   JOIN_REQUEST = 1,
@@ -15,102 +14,81 @@ enum class PacketType : uint8_t {
   TELEMETRY = 4,
   HEARTBEAT = 5,
   LEADER_ANNOUNCEMENT = 6,
-  LEADER_REQUEST = 7,
+  PERMISSION_TO_SEND = 7,
 };
+// ==================== Constants ==================== //
 
-// --- Sabitler ---
 constexpr size_t MAX_COMMAND_LENGTH = 20;
-constexpr size_t MAX_NODE_NAME_LENGTH =
-    16; // İstenen isim için maksimum uzunluk
+constexpr size_t MAX_NODE_NAME_LENGTH = 20;
 
-// --- Paket Yapıları ---
+// ==================== Packet Structures ==================== //
 
+#pragma pack(push, 1)
 struct CommandPacket {
-  PacketType type = PacketType::COMMAND; // Paket tipini varsayılan olarak ata
+  PacketType type = PacketType::COMMAND;
   DroneIdType target_drone_id;
   uint32_t timestamp;
   char command[MAX_COMMAND_LENGTH];
 };
 
 struct TelemetryPacket {
-  PacketType type = PacketType::TELEMETRY; // Paket tipini varsayılan olarak ata
-  DroneIdType source_drone_id;
+  PacketType type = PacketType::TELEMETRY;
+  DroneIdType drone_id;
   uint32_t timestamp;
-  float altitude;
+  int16_t acceleration_x, acceleration_y, acceleration_z;
+  int16_t gyroscope_x, gyroscope_y, gyroscope_z;
   float battery_voltage;
-  // int8_t rssi_to_leader_or_server;
+  float altitude;
 };
 
 struct JoinRequestPacket {
-  PacketType type =
-      PacketType::JOIN_REQUEST; // Paket tipini varsayılan olarak ata
+  PacketType type = PacketType::JOIN_REQUEST;
   uint32_t timestamp;
-  DroneIdType temp_id; // Geçici bir ID veya MAC adresinin bir kısmı olabilir
-  char requested_name[MAX_NODE_NAME_LENGTH]; // Drone'un ağda kullanmak istediği
-                                             // isim
+  DroneIdType temp_id;
+  char requested_name[MAX_NODE_NAME_LENGTH];
 };
 
 struct JoinResponsePacket {
-  PacketType type =
-      PacketType::JOIN_RESPONSE; // Paket tipini varsayılan olarak ata
+  PacketType type = PacketType::JOIN_RESPONSE;
   DroneIdType assigned_id;
   DroneIdType current_leader_id;
   uint32_t timestamp;
-  // Ağ ayarları (kullanılacak RF kanalı, şifreleme anahtarı parçası vb.)
 };
 
 struct HeartbeatPacket {
-  PacketType type = PacketType::HEARTBEAT; // Paket tipini varsayılan olarak ata
+  PacketType type = PacketType::HEARTBEAT;
   DroneIdType source_drone_id;
   uint32_t timestamp;
-  // bool is_leader;
 };
 
 struct LeaderAnnouncementPacket {
-  PacketType type =
-      PacketType::LEADER_ANNOUNCEMENT; // Paket tipini varsayılan olarak ata
+  PacketType type = PacketType::LEADER_ANNOUNCEMENT;
   DroneIdType new_leader_id;
   uint32_t timestamp;
 };
 
-struct LeaderRequestPacket {
-  PacketType type =
-      PacketType::LEADER_REQUEST; // Paket tipini varsayılan olarak ata
-  DroneIdType requesting_drone_id;
+struct PermissionToSendPacket {
+  PacketType type = PacketType::PERMISSION_TO_SEND;
+  DroneIdType target_drone_id;
   uint32_t timestamp;
-  // DroneIdType last_known_leader_id;
-  // int8_t reason_code;
 };
+#pragma pack(pop)
 
-/*
-### Dikkat Edilmesi Gerekenler (packets.hpp için):
+// ==================== Assertions for Packet Sizes ==================== //
+static_assert(sizeof(LeaderAnnouncementPacket) == 6,
+              "LeaderAnnouncementPacket size mismatch");
 
-1.  **Paket Tipi Tanımlama Yöntemi**:
-    * Her struct'ın içine `PacketType type = PacketType::[ilgili_tip];` şeklinde
-bir üye ekledik. Bu, gelen bir paketin türünü belirlemenin bir yoludur.
-    * Alternatif olarak, tüm bu paketleri bir `union` içinde toplayıp, başına
-`PacketType` içeren genel bir yapı (`GenericPacket` gibi) koymak da bir
-yöntemdir. Bu, özellikle bellek optimizasyonu veya farklı paket türleri arasında
-doğrudan C-stili cast işlemleri yapılacaksa tercih edilebilir.
+static_assert(sizeof(HeartbeatPacket) == 6, "HeartbeatPacket size mismatch");
 
-2.  **AES Şifreleme**:
-    * Bu yapılar şifrelenmemiş (plaintext) veriyi temsil eder.
-    * Bu yapılar önce bir byte dizisine (serialization), sonra bu byte dizisi
-şifrelenmelidir.
-    * Alıcı tarafında ise önce şifreli veri çözülmeli, sonra byte dizisinden
-tekrar bu struct yapılarına dönüştürülmelidir (deserialization).
-    * IV (Initialization Vector) ve MAC (Message Authentication Code) gibi ek
-verilerin nasıl iletileceği düşünülmelidir.
+static_assert(sizeof(JoinResponsePacket) == 7,
+              "JoinResponsePacket boyutu hatalı");
 
-3.  **Serialization/Deserialization**:
-    * Struct'ları byte dizisine ve byte dizisini struct'lara çevirmek için
-fonksiyonlara ihtiyacınız olacak. Özellikle `float`, `uint32_t` gibi çok byte'lı
-üyeler için byte sırasına (endianness) dikkat edin.
+static_assert(sizeof(JoinRequestPacket) == 26,
+              "JoinRequestPacket boyutu hatalı");
 
-4.  **Maksimum Veri Boyutu (Payload Size)**:
-    * NRF24L01+ modülünün maksimum veri boyutu genellikle 32 byte'dır.
-    * Paket yapılarının (şifreleme, IV, MAC gibi ek bilgilerle birlikte) bu
-sınırı aşmamasına dikkat edin. Aşarsa, fragmentation ve reassembly mekanizmaları
-gerekebilir. Özellikle `char requested_name[MAX_NODE_NAME_LENGTH]` gibi alanlar
-paket boyutunu etkileyebilir.
-*/
+static_assert(sizeof(TelemetryPacket) == 26, "TelemetryPacket size mismatch");
+
+static_assert(sizeof(CommandPacket) == 26, "CommandPacket size mismatch");
+
+static_assert(sizeof(PermissionToSendPacket) == 6,
+              "PermissionToSendPacket size mismatch");
