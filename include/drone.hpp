@@ -5,7 +5,9 @@
 #include <cstdint>
 #include <iostream>
 #include <optional>
+#include <queue>
 #include <string>
+#include <array>
 
 class Drone {
 public:
@@ -31,6 +33,15 @@ public:
   void printDroneInfo() const;
 
 private:
+  struct RawPacket {
+    PacketType type;
+    std::array<uint8_t, 32> data{};
+    size_t size = 0;
+  };
+
+  size_t packetSize(PacketType type) const;
+  void pollRadio();
+
   RadioInterface &radio;
   DroneIdType temp_id_;
   std::optional<DroneIdType> network_id_;
@@ -38,6 +49,7 @@ private:
   bool has_permission_to_send_ = false;
   std::string name_;
   TelemetryPacket telemetry;
+  std::queue<RawPacket> rx_queue_;
 
   void handleCommand(const CommandPacket &cmd);
 };
