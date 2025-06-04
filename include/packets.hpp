@@ -56,6 +56,7 @@ struct JoinResponsePacket {
   PacketType type = PacketType::JOIN_RESPONSE;
   DroneIdType assigned_id;
   DroneIdType current_leader_id;
+  uint8_t assigned_channel;
   uint32_t timestamp;
 };
 
@@ -90,7 +91,7 @@ static_assert(sizeof(LeaderAnnouncementPacket) == 6,
 
 static_assert(sizeof(HeartbeatPacket) == 6, "HeartbeatPacket size mismatch");
 
-static_assert(sizeof(JoinResponsePacket) == 7,
+static_assert(sizeof(JoinResponsePacket) == 8,
               "JoinResponsePacket boyutu hatalı");
 
 static_assert(sizeof(JoinRequestPacket) == 26,

@@ -23,7 +23,7 @@ int main() {
   }
 
   // --- Katılma Aşaması ---
-  radio.configure(0, RadioDataRate::MEDIUM_RATE);
+  radio.configure(1, RadioDataRate::MEDIUM_RATE);
   radio.setAddress(BASE_TX, BASE_RX);
 
   Drone drone(radio);
@@ -51,11 +51,13 @@ int main() {
 
   drone.setNetworkId(resp.assigned_id);
   DroneIdType leader_id = resp.current_leader_id;
+  uint8_t op_channel = resp.assigned_channel;
   std::cout << "Ağ ID: " << static_cast<int>(resp.assigned_id)
-            << " Lider: " << static_cast<int>(leader_id) << std::endl;
+            << " Lider: " << static_cast<int>(leader_id)
+            << " Kanal: " << static_cast<int>(op_channel) << std::endl;
 
   // --- Operasyon Aşaması ---
-  radio.configure(1, RadioDataRate::MEDIUM_RATE);
+  radio.configure(op_channel, RadioDataRate::MEDIUM_RATE);
   radio.setAddress(BASE_TX, BASE_RX);
 
   auto last_leader = std::chrono::steady_clock::now();
@@ -82,9 +84,7 @@ int main() {
                           static_cast<int16_t>(rand() % 50),
                           static_cast<int16_t>(rand() % 50),
                           static_cast<int16_t>(rand() % 50), 120.0f, 3.7f);
-      radio.configure(0, RadioDataRate::MEDIUM_RATE);
       drone.sendTelemetry();
-      radio.configure(1, RadioDataRate::MEDIUM_RATE);
       last_telemetry = now;
     }
 
@@ -92,9 +92,7 @@ int main() {
       LeaderRequestPacket req{};
       req.drone_id = drone.getNetworkId().value_or(drone.getTempId());
       req.timestamp = static_cast<uint32_t>(std::time(nullptr));
-      radio.configure(0, RadioDataRate::MEDIUM_RATE);
       radio.send(&req, sizeof(req));
-      radio.configure(1, RadioDataRate::MEDIUM_RATE);
       last_leader = now;
     }
 
