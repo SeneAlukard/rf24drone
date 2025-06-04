@@ -40,6 +40,9 @@ struct TelemetryPacket {
   int16_t gyroscope_x, gyroscope_y, gyroscope_z;
   float battery_voltage;
   float altitude;
+  uint8_t rpd;
+  uint8_t retries;
+  float link_quality;
 };
 
 struct JoinRequestPacket {
@@ -93,7 +96,7 @@ static_assert(sizeof(JoinResponsePacket) == 7,
 static_assert(sizeof(JoinRequestPacket) == 26,
               "JoinRequestPacket boyutu hatalı");
 
-static_assert(sizeof(TelemetryPacket) == 26, "TelemetryPacket size mismatch");
+static_assert(sizeof(TelemetryPacket) == 32, "TelemetryPacket size mismatch");
 
 static_assert(sizeof(CommandPacket) == 26, "CommandPacket size mismatch");
 

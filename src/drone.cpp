@@ -77,6 +77,7 @@ void Drone::pollRadio() {
     pkt.type = peek;
     pkt.size = packetSize(peek);
     radio.receive(pkt.data.data(), pkt.size);
+    telemetry.rpd = radio.testRPD() ? 1 : 0;
     rx_queue_.push(pkt);
   }
 }
@@ -85,7 +86,14 @@ void Drone::sendTelemetry() {
   if (!has_permission_to_send_)
     return;
 
-  radio.send(&telemetry, sizeof(telemetry));
+  total_sends_++;
+  bool success = radio.send(&telemetry, sizeof(telemetry));
+  if (!success)
+    failed_sends_++;
+  telemetry.retries = radio.getARC();
+  telemetry.link_quality =
+      100.0f * (1.0f - static_cast<float>(failed_sends_) /
+                             static_cast<float>(total_sends_));
   has_permission_to_send_ = false; // izni kullandı
 }
 

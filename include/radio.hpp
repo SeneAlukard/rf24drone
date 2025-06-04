@@ -27,6 +27,9 @@ public:
   bool send(const void *data, size_t size);
   bool receive(void *data, size_t size, bool peekOnly = false);
 
+  bool testRPD();
+  uint8_t getARC();
+
 private:
   RF24 radio;
   uint64_t tx_address = 0;
