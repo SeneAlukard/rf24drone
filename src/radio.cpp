@@ -86,3 +86,11 @@ bool RadioInterface::receive(void *data, size_t size, bool peekOnly) {
   cached_packet.reset();
   return true;
 }
+
+bool RadioInterface::testRPD() {
+  return radio.testRPD();
+}
+
+uint8_t RadioInterface::getARC() {
+  return radio.getARC();
+}

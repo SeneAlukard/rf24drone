@@ -49,6 +49,8 @@ private:
   bool has_permission_to_send_ = false;
   std::string name_;
   TelemetryPacket telemetry;
+  uint32_t total_sends_ = 0;
+  uint32_t failed_sends_ = 0;
   std::queue<RawPacket> rx_queue_;
 
   void handleCommand(const CommandPacket &cmd);
