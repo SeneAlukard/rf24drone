@@ -10,22 +10,17 @@ const uint8_t address[6] = {'1', 'N', 'o', 'd', 'e', '\0'};
 
 int main() {
   if (!radio.begin()) {
-    std::printf("NRF24 initialization failed\n");
+    std::printf("NRF24 init failed\n");
     return 1;
   }
-
   radio.setPALevel(RF24_PA_LOW);
-  radio.openReadingPipe(1, address);
-  radio.startListening();
+  radio.openWritingPipe(address);
+  radio.stopListening();
 
-  char buffer[32] = {0};
+  const char payload[] = "Hello, NRF!";
   while (true) {
-    if (radio.available()) {
-      radio.read(buffer, sizeof(buffer));
-      std::printf("Received: %s\n", buffer);
-      std::fflush(stdout);
-    }
-    usleep(100000);
+    radio.write(payload, sizeof(payload));
+    sleep(1);
   }
   return 0;
 }
