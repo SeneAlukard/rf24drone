@@ -8,7 +8,7 @@
 #include <iostream>
 #include <thread>
 
-#define CE_PIN 22
+#define CE_PIN 27
 #define CSN_PIN 10
 
 static constexpr uint64_t BASE_TX = 0xF0F0F0F0D2LL;
