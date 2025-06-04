@@ -93,19 +93,3 @@ Every telemetry packet reports additional link statistics:
 
 ---
 
-## 🛑 Git Ignore Policy
-
-We ignore:
-
-- `build/` directory
-- `obj/`, `*.o`, and binaries
-- `compile_commands.json`
-- Editor-specific files (`.cache/`, `.vscode/`)
-
----
-
-## 📜 License
-
-MIT License 
-
----
