@@ -15,8 +15,8 @@ Bu sistem, nRF24L01 donanımıyla çalışan, kimliği atanmış droneların:
 
 | Kanal     | Amaç                                     |
 |-----------|------------------------------------------|
-| Channel 0 | Yer istasyonu iletişimi (ID, sensör uplink, liderlik) |
-| Channel 1 | Drone ↔ Drone iletişimi (komut yayını, heartbeat)     |
+| Channel 1 | Başlangıç (Join) kanalı |
+| Atanan Kanal | Drone iletişimi ve sensör uplink |
 
 ---
 
@@ -33,16 +33,16 @@ Bu sistem, nRF24L01 donanımıyla çalışan, kimliği atanmış droneların:
 
 ## 🧠 Davranış Akışı
 
-1. Drone `Channel 0` üzerinden yer istasyonuna `JoinRequest` yollar
+1. Drone varsayılan `Channel 1` üzerinden yer istasyonuna `JoinRequest` yollar
 2. Yer istasyonu:
-   - `JoinResponse` (drone_id + leader_id) yollar
-3. Drone `Channel 1`’e geçer ve ana döngü başlar:
+   - `JoinResponse` (drone_id + leader_id + channel) yollar
+3. Drone verilen kanala (`JoinResponse.channel`) geçer ve ana döngü başlar:
    - RF'den paket toplar (`rxQueue`)
    - Komut varsa:
      - Eğer `target_id == drone_id` ve `gecikme ≤ 3000ms` ise uygular
      - Eğer `next_leader_id` içeriyorsa lider güncellenir
      - Eğer liderse, yer istasyonundan gelen komutları yayınlar
-   - Belirli aralıklarla sensör verisi gönderilir (`Channel 0`)
+   - Belirli aralıklarla sensör verisi gönderilir (atanan kanal)
    - 5 saniyeden uzun süre lider mesajı gelmezse:
      - `leader_id = std::nullopt`
      - Yer istasyonuna `LeaderRequest` gönderilir
@@ -52,7 +52,7 @@ Bu sistem, nRF24L01 donanımıyla çalışan, kimliği atanmış droneların:
 ## 📦 Paket Tipleri (`PacketType`)
 
 - `JoinRequest`
-- `JoinResponse { drone_id, leader_id }`
+- `JoinResponse { drone_id, leader_id, channel }`
 - `CommandPacket { target_id, command, payload, timestamp, next_leader_id? }`
 - `SensorPacket`
 - `Heartbeat`
