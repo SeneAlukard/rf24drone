@@ -1,23 +1,31 @@
 #include <RF24/RF24.h>
+#include <cstdint>
+#include <cstdio>
 #include <unistd.h>
 
-// CE = 27, CSN = 0 (spidev1.0)
+// CE = GPIO27, CSN = GPIO10
 RF24 radio(27, 10);
 
-const byte address[6] = "1Node";
+const uint8_t address[6] = {'1', 'N', 'o', 'd', 'e', '\0'};
 
 int main() {
-  radio.begin();
+  if (!radio.begin()) {
+    std::printf("NRF24 initialization failed\n");
+    return 1;
+  }
+
   radio.setPALevel(RF24_PA_LOW);
   radio.openReadingPipe(1, address);
   radio.startListening();
 
-  char text[32] = {0};
-  while (1) {
+  char buffer[32] = {0};
+  while (true) {
     if (radio.available()) {
-      radio.read(&text, sizeof(text));
-      printf("Received: %s\n", text);
+      radio.read(buffer, sizeof(buffer));
+      std::printf("Received: %s\n", buffer);
+      std::fflush(stdout);
     }
-    usleep(100000); // 100ms
+    usleep(100000);
   }
+  return 0;
 }
