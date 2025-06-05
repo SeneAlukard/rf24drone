@@ -1,7 +1,9 @@
 # rf24drone
 
-A C++ ground base station program for communicating with NRF24L01+ drones over RF.  
-Built with modular CMake structure and supports leader selection based on link quality metrics, telemetry polling, and debug printing.
+A lightweight NRF24L01+ drone application. Each node can run as a leader or
+follower, joins the network with a `JoinRequest`/`JoinResponse` handshake and can
+dynamically change roles. Telemetry is transmitted only after receiving
+`PermissionToSend` packets to avoid collisions on half‑duplex radios.
 
 ---
 
@@ -78,20 +80,13 @@ The test binary can be run from the `test/` folder:
 
 ## 💡 Features
 
-- NRF24L01+ RF communication with drones
-- Modular Drone class design
-- Leader selection based on link quality data
-- Pretty vector printing via `printSet`
-- `#pragma once` headers and project-wide include system
+- NRF24L01+ RF communication for a small swarm
+- Join/response handshake assigns IDs and channel
+- Heartbeat & leader announcement packets for dynamic role changes
+- Telemetry sent only after `PermissionToSend`
+- Commands ignored if older than 3 seconds
+- Telemetry packets contain link quality stats (`rpd`, `retries`, `link_quality`)
 - CMake auto-symlinks `compile_commands.json` for LSP support
-
-### Telemetry Link Quality
-
-Every telemetry packet reports additional link statistics:
-
-- `rpd` – result of `testRPD()` (1 if signal > -64 dBm)
-- `retries` – number of auto retransmissions used
-- `link_quality` – success rate percentage of telemetry sends
 
 ---
 
