@@ -1,12 +1,14 @@
 #include "drone.hpp"
 #include "packets.hpp"
 #include "radio.hpp"
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <iostream>
 #include <thread>
+#include <vector>
 
 #define TX_CE_PIN 27
 #define TX_CSN_PIN 10
@@ -16,56 +18,76 @@
 static constexpr uint64_t BASE_TX = 0xF0F0F0F0D2LL;
 static constexpr uint64_t BASE_RX = 0xF0F0F0F0E1LL;
 
-int main() {
-  RadioInterface radio(TX_CE_PIN, TX_CSN_PIN, RX_CE_PIN, RX_CSN_PIN);
+// Basit lider döngüsü
+static void leaderLoop(RadioInterface &radio, Drone &drone,
+                       const std::vector<DroneIdType> &swarm,
+                       uint8_t gbs_channel, uint8_t drone_channel) {
+  size_t idx = 0;
+  while (drone.isLeader()) {
+    // Yer istasyonu ile konuşmak için kanalı değiştir
+    radio.configure(gbs_channel, RadioDataRate::MEDIUM_RATE);
+    radio.setAddress(BASE_TX, BASE_RX);
 
-  if (!radio.begin()) {
-    std::cerr << "Radio başlatılamadı!\n";
-    return 1;
-  }
+    PermissionToSendPacket perm{};
+    perm.target_drone_id = 0; // 0 -> GBS
+    perm.timestamp = static_cast<uint32_t>(std::time(nullptr));
+    radio.send(&perm, sizeof(perm));
 
-  // --- Katılma Aşaması ---
-  radio.configure(1, RadioDataRate::MEDIUM_RATE);
-  radio.setAddress(BASE_TX, BASE_RX);
-
-  Drone drone(radio);
-  JoinRequestPacket join{};
-  join.timestamp = static_cast<uint32_t>(std::time(nullptr));
-  join.temp_id = drone.getTempId();
-  std::strncpy(join.requested_name, drone.getName().c_str(),
-               MAX_NODE_NAME_LENGTH - 1);
-  join.requested_name[MAX_NODE_NAME_LENGTH - 1] = '\0';
-
-  radio.send(&join, sizeof(join));
-  std::cout << "JoinRequest gönderildi, yanıt bekleniyor..." << std::endl;
-
-  JoinResponsePacket resp{};
-  while (true) {
-    PacketType peek;
-    if (radio.receive(&peek, sizeof(PacketType), true) &&
-        peek == PacketType::JOIN_RESPONSE) {
-      if (radio.receive(&resp, sizeof(resp))) {
+    // Kısa süre komut bekle
+    auto start = std::chrono::steady_clock::now();
+    while (std::chrono::steady_clock::now() - start <
+           std::chrono::milliseconds(300)) {
+      PacketType peek;
+      if (radio.receive(&peek, sizeof(peek), true) &&
+          peek == PacketType::COMMAND) {
+        CommandPacket cmd{};
+        if (radio.receive(&cmd, sizeof(cmd))) {
+          if (std::strcmp(cmd.command, "no_need") == 0) {
+            // no action needed, simply noted
+          }
+        }
         break;
       }
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Drone kanalı
+    radio.configure(drone_channel, RadioDataRate::MEDIUM_RATE);
+    radio.setAddress(BASE_TX, BASE_RX);
+
+    if (!swarm.empty()) {
+      DroneIdType target = swarm[idx];
+      PermissionToSendPacket p{};
+      p.target_drone_id = target;
+      p.timestamp = static_cast<uint32_t>(std::time(nullptr));
+      radio.send(&p, sizeof(p));
+
+      auto waitStart = std::chrono::steady_clock::now();
+      while (std::chrono::steady_clock::now() - waitStart <
+             std::chrono::milliseconds(300)) {
+        PacketType t;
+        if (radio.receive(&t, sizeof(t), true)) {
+          drone.handleIncoming();
+          break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      }
+
+      idx = (idx + 1) % swarm.size();
+    }
+
+    if (drone.hasRoleChanged()) {
+      drone.clearRoleChanged();
+      break;
+    }
   }
+}
 
-  drone.setNetworkId(resp.assigned_id);
-  DroneIdType leader_id = resp.current_leader_id;
-  uint8_t op_channel = resp.assigned_channel;
-  std::cout << "Ağ ID: " << static_cast<int>(resp.assigned_id)
-            << " Lider: " << static_cast<int>(leader_id)
-            << " Kanal: " << static_cast<int>(op_channel) << std::endl;
-
-  // --- Operasyon Aşaması ---
-  radio.configure(op_channel, RadioDataRate::MEDIUM_RATE);
-  radio.setAddress(BASE_TX, BASE_RX);
-
+static void followerLoop(RadioInterface &radio, Drone &drone) {
   auto last_leader = std::chrono::steady_clock::now();
   auto last_telemetry = std::chrono::steady_clock::now();
 
-  while (true) {
+  while (!drone.isLeader()) {
     PacketType type;
     if (radio.receive(&type, sizeof(PacketType), true)) {
       if (type == PacketType::HEARTBEAT) {
@@ -98,7 +120,80 @@ int main() {
       last_leader = now;
     }
 
+    if (drone.hasRoleChanged()) {
+      drone.clearRoleChanged();
+      break;
+    }
+
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  }
+}
+
+int main(int argc, char **argv) {
+  bool leader_mode = false;
+  for (int i = 1; i < argc; ++i) {
+    if (std::strcmp(argv[i], "--leader") == 0)
+      leader_mode = true;
+  }
+
+  RadioInterface radio(TX_CE_PIN, TX_CSN_PIN, RX_CE_PIN, RX_CSN_PIN);
+
+  if (!radio.begin()) {
+    std::cerr << "Radio başlatılamadı!\n";
+    return 1;
+  }
+
+  // --- Katılma Aşaması ---
+  radio.configure(1, RadioDataRate::MEDIUM_RATE);
+  radio.setAddress(BASE_TX, BASE_RX);
+
+  Drone drone(radio, leader_mode);
+  JoinRequestPacket join{};
+  join.timestamp = static_cast<uint32_t>(std::time(nullptr));
+  join.temp_id = drone.getTempId();
+  std::strncpy(join.requested_name, drone.getName().c_str(),
+               MAX_NODE_NAME_LENGTH - 1);
+  join.requested_name[MAX_NODE_NAME_LENGTH - 1] = '\0';
+
+  radio.send(&join, sizeof(join));
+  std::cout << "JoinRequest gönderildi, yanıt bekleniyor..." << std::endl;
+
+  JoinResponsePacket resp{};
+  while (true) {
+    PacketType peek;
+    if (radio.receive(&peek, sizeof(PacketType), true) &&
+        peek == PacketType::JOIN_RESPONSE) {
+      if (radio.receive(&resp, sizeof(resp))) {
+        break;
+      }
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+
+  drone.setNetworkId(resp.assigned_id);
+  DroneIdType leader_id = resp.current_leader_id;
+  uint8_t op_channel = resp.assigned_channel;
+  std::cout << "Ağ ID: " << static_cast<int>(resp.assigned_id)
+            << " Lider: " << static_cast<int>(leader_id)
+            << " Kanal: " << static_cast<int>(op_channel) << std::endl;
+
+  drone.setCurrentLeaderId(leader_id);
+  drone.setLeaderStatus(leader_id == resp.assigned_id);
+
+  // --- Operasyon Aşaması ---
+  radio.configure(op_channel, RadioDataRate::MEDIUM_RATE);
+  radio.setAddress(BASE_TX, BASE_RX);
+
+  std::vector<DroneIdType> swarm{1, 2, 3};
+  swarm.erase(std::remove(swarm.begin(), swarm.end(),
+                          drone.getNetworkId().value_or(drone.getTempId())),
+              swarm.end());
+
+  while (true) {
+    if (drone.isLeader())
+      leaderLoop(radio, drone, swarm, 0, op_channel);
+    else
+      followerLoop(radio, drone);
   }
 
   return 0;

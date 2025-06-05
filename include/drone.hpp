@@ -19,6 +19,11 @@ public:
   bool isLeader() const;
   const std::string &getName() const;
 
+  std::optional<DroneIdType> getCurrentLeaderId() const;
+  void setCurrentLeaderId(std::optional<DroneIdType> id);
+  bool hasRoleChanged() const;
+  void clearRoleChanged();
+
   void setNetworkId(DroneIdType net_id);
   void clearNetworkId();
   void setLeaderStatus(bool status);
@@ -52,6 +57,11 @@ private:
   uint32_t total_sends_ = 0;
   uint32_t failed_sends_ = 0;
   std::queue<RawPacket> rx_queue_;
+
+  std::optional<DroneIdType> current_leader_id_;
+  bool role_changed_ = false;
+
+  void handleLeaderAnnouncement(const LeaderAnnouncementPacket &ann);
 
   void handleCommand(const CommandPacket &cmd);
 };
