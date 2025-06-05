@@ -46,7 +46,9 @@ cmake ..
 make
 ```
 
-This will generate the executable `drone` in the `build/` directory.
+This will generate the executable `drone` in the `build/` directory and
+create a symlink `./drone` at the project root for convenience. Test
+executables are placed under `test/`.
 
 ### 3. (Optional) Symlink compile_commands.json
 
@@ -60,16 +62,16 @@ ln -sf build/compile_commands.json .
 
 ## 🧪 Running the Program
 
-From the build folder:
+From either the build directory or the project root (via the symlink):
 
 ```bash
 ./drone
 ```
 
-Or from the root:
+The test binary can be run from the `test/` folder:
 
 ```bash
-./build/drone
+./test/duplex_test
 ```
 
 ---
