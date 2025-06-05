@@ -8,14 +8,16 @@
 #include <iostream>
 #include <thread>
 
-#define CE_PIN 27
-#define CSN_PIN 10
+#define TX_CE_PIN 27
+#define TX_CSN_PIN 10
+#define RX_CE_PIN 22
+#define RX_CSN_PIN 0
 
 static constexpr uint64_t BASE_TX = 0xF0F0F0F0D2LL;
 static constexpr uint64_t BASE_RX = 0xF0F0F0F0E1LL;
 
 int main() {
-  RadioInterface radio(CE_PIN, CSN_PIN);
+  RadioInterface radio(TX_CE_PIN, TX_CSN_PIN, RX_CE_PIN, RX_CSN_PIN);
 
   if (!radio.begin()) {
     std::cerr << "Radio başlatılamadı!\n";

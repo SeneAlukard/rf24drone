@@ -5,6 +5,7 @@
 #include <array>
 #include <cstdint>
 #include <optional>
+#include <memory>
 
 enum class RadioDataRate {
   LOW_RATE,
@@ -14,9 +15,14 @@ enum class RadioDataRate {
 
 class RadioInterface {
 public:
-  RadioInterface(uint8_t cePin, uint8_t csnPin); // for default SPI BUS
-  RadioInterface(uint8_t cePin, uint8_t csnPin,
-                 uint8_t spiPort); // for custom SPI BUS
+  // Single transceiver constructor
+  RadioInterface(uint8_t cePin, uint8_t csnPin);
+
+  // Full duplex constructors (separate TX and RX modules)
+  RadioInterface(uint8_t txCePin, uint8_t txCsnPin, uint8_t rxCePin,
+                 uint8_t rxCsnPin);
+  RadioInterface(uint8_t txCePin, uint8_t txCsnPin, uint8_t txSpiPort,
+                 uint8_t rxCePin, uint8_t rxCsnPin, uint8_t rxSpiPort);
 
   bool begin();
   void setAddress(uint64_t tx, uint64_t rx);
@@ -31,7 +37,9 @@ public:
   uint8_t getARC();
 
 private:
-  RF24 radio;
+  std::unique_ptr<RF24> tx_radio;
+  std::unique_ptr<RF24> rx_radio; // if null, single transceiver mode
+  bool full_duplex = false;
   uint64_t tx_address = 0;
   uint64_t rx_address = 0;
   // Holds the latest packet when it was peeked so that it can be
