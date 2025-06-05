@@ -75,6 +75,12 @@ set_target_properties(duplex_test PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/test
 )
 
+add_executable(packets_test packets_test.cpp)
+target_link_libraries(packets_test PRIVATE drone_core)
+set_target_properties(packets_test PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/test
+)
+
 # Symlink the main binary to the project root for convenience
 add_custom_command(
     TARGET drone POST_BUILD
