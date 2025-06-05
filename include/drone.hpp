@@ -64,4 +64,14 @@ private:
   void handleLeaderAnnouncement(const LeaderAnnouncementPacket &ann);
 
   void handleCommand(const CommandPacket &cmd);
+
+  void handleJoinResponse(const JoinResponsePacket &resp);
+
+  void handleTelemetry(const TelemetryPacket &tlm);
+
+  void handleHeartbeat(const HeartbeatPacket &hb);
+
+  void handleLeaderRequest(const LeaderRequestPacket &req);
+
+  void handleUndefined();
 };
