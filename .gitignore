@@ -3,6 +3,8 @@ build/
 obj/
 gbs_program
 compile_commands.json
+drone
+test/
 
 # === Editor / Dev tools ===
 .cache/
