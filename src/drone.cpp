@@ -142,6 +142,42 @@ void Drone::handleIncoming() {
       }
       break;
     }
+    case PacketType::JOIN_RESPONSE: {
+      if (pkt.size == sizeof(JoinResponsePacket)) {
+        JoinResponsePacket resp{};
+        std::memcpy(&resp, pkt.data.data(), sizeof(resp));
+        handleJoinResponse(resp);
+      }
+      break;
+    }
+    case PacketType::TELEMETRY: {
+      if (pkt.size == sizeof(TelemetryPacket)) {
+        TelemetryPacket tlm{};
+        std::memcpy(&tlm, pkt.data.data(), sizeof(tlm));
+        handleTelemetry(tlm);
+      }
+      break;
+    }
+    case PacketType::HEARTBEAT: {
+      if (pkt.size == sizeof(HeartbeatPacket)) {
+        HeartbeatPacket hb{};
+        std::memcpy(&hb, pkt.data.data(), sizeof(hb));
+        handleHeartbeat(hb);
+      }
+      break;
+    }
+    case PacketType::LEADER_REQUEST: {
+      if (pkt.size == sizeof(LeaderRequestPacket)) {
+        LeaderRequestPacket req{};
+        std::memcpy(&req, pkt.data.data(), sizeof(req));
+        handleLeaderRequest(req);
+      }
+      break;
+    }
+    case PacketType::UNDEFINED: {
+      handleUndefined();
+      break;
+    }
     default:
       break;
     }
@@ -188,3 +224,27 @@ void Drone::printDroneInfo() const {
   std::cout << "İsim   : " << name_ << "\n";
   std::cout << "Lider? : " << (is_leader_ ? "Evet" : "Hayır") << "\n";
 }
+
+void Drone::handleJoinResponse(const JoinResponsePacket &resp) {
+  std::cout << "[JoinResponse] ID " << static_cast<int>(resp.assigned_id)
+            << " Channel " << static_cast<int>(resp.assigned_channel)
+            << " Leader " << static_cast<int>(resp.current_leader_id)
+            << std::endl;
+}
+
+void Drone::handleTelemetry(const TelemetryPacket &tlm) {
+  std::cout << "[Telemetry] Drone " << static_cast<int>(tlm.drone_id)
+            << " Altitude " << tlm.altitude << std::endl;
+}
+
+void Drone::handleHeartbeat(const HeartbeatPacket &hb) {
+  std::cout << "[Heartbeat] from " << static_cast<int>(hb.source_drone_id)
+            << std::endl;
+}
+
+void Drone::handleLeaderRequest(const LeaderRequestPacket &req) {
+  std::cout << "[LeaderRequest] from " << static_cast<int>(req.drone_id)
+            << std::endl;
+}
+
+void Drone::handleUndefined() { std::cout << "UNDEFINED MESSAGE COME" << std::endl; }
