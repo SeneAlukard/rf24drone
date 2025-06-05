@@ -23,6 +23,18 @@ bool Drone::isLeader() const { return is_leader_; }
 
 const std::string &Drone::getName() const { return name_; }
 
+std::optional<DroneIdType> Drone::getCurrentLeaderId() const {
+  return current_leader_id_;
+}
+
+void Drone::setCurrentLeaderId(std::optional<DroneIdType> id) {
+  current_leader_id_ = id;
+}
+
+bool Drone::hasRoleChanged() const { return role_changed_; }
+
+void Drone::clearRoleChanged() { role_changed_ = false; }
+
 void Drone::setNetworkId(DroneIdType net_id) { network_id_ = net_id; }
 
 void Drone::clearNetworkId() { network_id_ = std::nullopt; }
@@ -122,6 +134,14 @@ void Drone::handleIncoming() {
       }
       break;
     }
+    case PacketType::LEADER_ANNOUNCEMENT: {
+      if (pkt.size == sizeof(LeaderAnnouncementPacket)) {
+        LeaderAnnouncementPacket ann{};
+        std::memcpy(&ann, pkt.data.data(), sizeof(ann));
+        handleLeaderAnnouncement(ann);
+      }
+      break;
+    }
     default:
       break;
     }
@@ -139,6 +159,22 @@ void Drone::handleCommand(const CommandPacket &cmd) {
     return; // gecikmesi 3 saniyeden büyükse yoksay
 
   std::cout << "[Komut] " << cmd.command << std::endl;
+}
+
+void Drone::handleLeaderAnnouncement(const LeaderAnnouncementPacket &ann) {
+  DroneIdType self_id = network_id_.value_or(temp_id_);
+  bool was_leader = is_leader_;
+
+  if (ann.new_leader_id == self_id) {
+    is_leader_ = true;
+    current_leader_id_ = self_id;
+  } else {
+    is_leader_ = false;
+    current_leader_id_ = ann.new_leader_id;
+  }
+
+  if (was_leader != is_leader_)
+    role_changed_ = true;
 }
 
 void Drone::printDroneInfo() const {
