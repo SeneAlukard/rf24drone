@@ -15,11 +15,18 @@ add_subdirectory(external/RF24)
 # --- YENİ EKLENEN BÖLÜM SONU ---
 
 # src altındaki tüm cpp dosyalarını al
-file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS
-    ${CMAKE_SOURCE_DIR}/src/*.cpp
+add_library(drone_core
+    src/drone.cpp
+    src/radio.cpp
 )
 
-add_executable(drone ${SRC_FILES})
+add_executable(drone src/main.cpp)
+
+target_include_directories(drone_core
+    PUBLIC
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/external/RF24
+)
 
 target_include_directories(drone
     PRIVATE
@@ -40,7 +47,8 @@ target_include_directories(drone
 # --- YENİ target_link_libraries SATIRI ---
 # drone hedefini, submodule tarafından oluşturulan rf24 hedefine bağla
 # (RF24'ün CMake hedef adının "rf24" olduğunu varsayıyoruz)
-target_link_libraries(drone PRIVATE rf24)
+target_link_libraries(drone_core PUBLIC rf24)
+target_link_libraries(drone PRIVATE drone_core)
 # --- YENİ target_link_libraries SATIRI SONU ---
 
 # compile_commands.json symlink
@@ -56,4 +64,21 @@ add_custom_target(run
     COMMAND drone
  DEPENDS drone
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+# Place test executables under the project root in a `test` directory
+file(MAKE_DIRECTORY ${CMAKE_SOURCE_DIR}/test)
+
+add_executable(duplex_test duplex_test.cpp)
+target_link_libraries(duplex_test PRIVATE drone_core)
+set_target_properties(duplex_test PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/test
+)
+
+# Symlink the main binary to the project root for convenience
+add_custom_command(
+    TARGET drone POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+            $<TARGET_FILE:drone>
+            ${CMAKE_SOURCE_DIR}/drone
 )
