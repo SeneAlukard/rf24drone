@@ -23,6 +23,8 @@ add_library(drone_core
 
 add_executable(drone src/main.cpp)
 
+add_executable(simple_drone src/simple_main.cpp)
+
 target_include_directories(drone_core
     PUBLIC
         ${CMAKE_SOURCE_DIR}/include
@@ -30,6 +32,12 @@ target_include_directories(drone_core
 )
 
 target_include_directories(drone
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/external/RF24
+)
+
+target_include_directories(simple_drone
     PRIVATE
         ${CMAKE_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/external/RF24
@@ -50,6 +58,7 @@ target_include_directories(drone
 # (RF24'ün CMake hedef adının "rf24" olduğunu varsayıyoruz)
 target_link_libraries(drone_core PUBLIC rf24)
 target_link_libraries(drone PRIVATE drone_core)
+target_link_libraries(simple_drone PRIVATE drone_core)
 # --- YENİ target_link_libraries SATIRI SONU ---
 
 # compile_commands.json symlink
