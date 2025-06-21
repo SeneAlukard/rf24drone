@@ -20,12 +20,11 @@ static constexpr uint64_t BASE_RX = 0xF0F0F0F0E1ULL;
 
 // Basit lider döngüsü
 static void leaderLoop(RadioInterface &radio, Drone &drone,
-                       const std::vector<DroneIdType> &swarm,
-                       uint8_t gbs_channel, uint8_t drone_channel) {
+                       const std::vector<DroneIdType> &swarm) {
   size_t idx = 0;
   while (drone.isLeader()) {
     // Yer istasyonu ile konuşmak için kanalı değiştir
-    radio.configure(gbs_channel, RadioDataRate::MEDIUM_RATE);
+    radio.configure(1, RadioDataRate::MEDIUM_RATE);
     radio.setAddress(BASE_TX, BASE_RX);
 
     PermissionToSendPacket perm{};
@@ -52,7 +51,7 @@ static void leaderLoop(RadioInterface &radio, Drone &drone,
     }
 
     // Drone kanalı
-    radio.configure(drone_channel, RadioDataRate::MEDIUM_RATE);
+    radio.configure(1, RadioDataRate::MEDIUM_RATE);
     radio.setAddress(BASE_TX, BASE_RX);
 
     if (!swarm.empty()) {
@@ -187,16 +186,15 @@ int main(int argc, char **argv) {
 
   drone.setNetworkId(resp.assigned_id);
   DroneIdType leader_id = resp.current_leader_id;
-  uint8_t op_channel = resp.assigned_channel;
   std::cout << "Ağ ID: " << static_cast<int>(resp.assigned_id)
             << " Lider: " << static_cast<int>(leader_id)
-            << " Kanal: " << static_cast<int>(op_channel) << std::endl;
+            << " Kanal: 1" << std::endl;
 
   drone.setCurrentLeaderId(leader_id);
   drone.setLeaderStatus(leader_id == resp.assigned_id);
 
   // --- Operasyon Aşaması ---
-  radio.configure(op_channel, RadioDataRate::MEDIUM_RATE);
+  radio.configure(1, RadioDataRate::MEDIUM_RATE);
   radio.setAddress(BASE_TX, BASE_RX);
 
   std::vector<DroneIdType> swarm{1, 2, 3};
@@ -206,7 +204,7 @@ int main(int argc, char **argv) {
 
   while (true) {
     if (drone.isLeader())
-      leaderLoop(radio, drone, swarm, 0, op_channel);
+      leaderLoop(radio, drone, swarm);
     else
       followerLoop(radio, drone, &sensor);
   }
