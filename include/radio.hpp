@@ -27,8 +27,8 @@ public:
   bool begin();
   void setAddress(uint64_t tx, uint64_t rx);
   void openListeningPipe(uint8_t pipe, uint64_t address);
-  void configure(uint8_t channel = 90,
-                 RadioDataRate datarate = RadioDataRate::MEDIUM_RATE);
+  void configure(uint8_t channel = 1,
+                  RadioDataRate datarate = RadioDataRate::MEDIUM_RATE);
 
   bool send(const void *data, size_t size);
   bool receive(void *data, size_t size, bool peekOnly = false);

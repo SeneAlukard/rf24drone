@@ -20,8 +20,7 @@ static constexpr uint64_t BASE_RX = 0xF0F0F0F0E1ULL;
 
 // Basit lider döngüsü
 static void leaderLoop(RadioInterface &radio, Drone &drone,
-                       const std::vector<DroneIdType> &swarm,
-                       uint8_t gbs_channel, uint8_t drone_channel) {
+                       const std::vector<DroneIdType> &swarm) {
   size_t idx = 0;
   while (drone.isLeader()) {
     // Yer istasyonu ile konuşmak için kanalı değiştir
@@ -189,10 +188,9 @@ int main(int argc, char **argv) {
 
   drone.setNetworkId(resp.assigned_id);
   DroneIdType leader_id = resp.current_leader_id;
-  uint8_t op_channel = resp.assigned_channel;
   std::cout << "Ağ ID: " << static_cast<int>(resp.assigned_id)
             << " Lider: " << static_cast<int>(leader_id)
-            << " Kanal: " << static_cast<int>(op_channel) << std::endl;
+            << " Kanal: 1" << std::endl;
 
   drone.setCurrentLeaderId(leader_id);
   drone.setLeaderStatus(leader_id == resp.assigned_id);
@@ -208,7 +206,7 @@ int main(int argc, char **argv) {
 
   while (true) {
     if (drone.isLeader())
-      leaderLoop(radio, drone, swarm, 0, 1);
+      leaderLoop(radio, drone, swarm);
     else
       followerLoop(radio, drone, &sensor);
   }
