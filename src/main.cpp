@@ -27,8 +27,6 @@ static void leaderLoop(RadioInterface &radio, Drone &drone,
     radio.configure(1, RadioDataRate::MEDIUM_RATE);
     radio.setAddress(BASE_TX, BASE_RX);
 
-    std::cout << drone_channel << gbs_channel << std::endl;
-
     PermissionToSendPacket perm{};
     perm.target_drone_id = 0; // 0 -> GBS
     perm.timestamp = static_cast<uint32_t>(std::time(nullptr));
@@ -189,8 +187,8 @@ int main(int argc, char **argv) {
   drone.setNetworkId(resp.assigned_id);
   DroneIdType leader_id = resp.current_leader_id;
   std::cout << "Ağ ID: " << static_cast<int>(resp.assigned_id)
-            << " Lider: " << static_cast<int>(leader_id)
-            << " Kanal: 1" << std::endl;
+            << " Lider: " << static_cast<int>(leader_id) << " Kanal: 1"
+            << std::endl;
 
   drone.setCurrentLeaderId(leader_id);
   drone.setLeaderStatus(leader_id == resp.assigned_id);
