@@ -16,7 +16,7 @@ static constexpr uint64_t GBS_ADDR_TX = 0xF0F0F0F0D2ULL;
 static constexpr uint64_t GBS_ADDR_RX = 0xF0F0F0F0E1ULL;
 
 int main() {
-  RadioInterface radio(TX_CE_PIN, TX_CSN_PIN, RX_CE_PIN, RX_CSN_PIN);
+  RadioInterface radio(RX_CE_PIN, RX_CSN_PIN);
   Mpu6050 sensor;
 
   if (!sensor.init()) {
