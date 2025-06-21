@@ -25,8 +25,10 @@ static void leaderLoop(RadioInterface &radio, Drone &drone,
   size_t idx = 0;
   while (drone.isLeader()) {
     // Yer istasyonu ile konuşmak için kanalı değiştir
-    radio.configure(gbs_channel, RadioDataRate::MEDIUM_RATE);
+    radio.configure(1, RadioDataRate::MEDIUM_RATE);
     radio.setAddress(BASE_TX, BASE_RX);
+
+    std::cout << drone_channel << gbs_channel << std::endl;
 
     PermissionToSendPacket perm{};
     perm.target_drone_id = 0; // 0 -> GBS
@@ -52,7 +54,7 @@ static void leaderLoop(RadioInterface &radio, Drone &drone,
     }
 
     // Drone kanalı
-    radio.configure(drone_channel, RadioDataRate::MEDIUM_RATE);
+    radio.configure(1, RadioDataRate::MEDIUM_RATE);
     radio.setAddress(BASE_TX, BASE_RX);
 
     if (!swarm.empty()) {
@@ -196,7 +198,7 @@ int main(int argc, char **argv) {
   drone.setLeaderStatus(leader_id == resp.assigned_id);
 
   // --- Operasyon Aşaması ---
-  radio.configure(op_channel, RadioDataRate::MEDIUM_RATE);
+  radio.configure(1, RadioDataRate::MEDIUM_RATE);
   radio.setAddress(BASE_TX, BASE_RX);
 
   std::vector<DroneIdType> swarm{1, 2, 3};
@@ -206,7 +208,7 @@ int main(int argc, char **argv) {
 
   while (true) {
     if (drone.isLeader())
-      leaderLoop(radio, drone, swarm, 0, op_channel);
+      leaderLoop(radio, drone, swarm, 0, 1);
     else
       followerLoop(radio, drone, &sensor);
   }
