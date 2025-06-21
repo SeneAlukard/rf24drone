@@ -6,9 +6,8 @@
 RadioInterface::RadioInterface(uint8_t cePin, uint8_t csnPin)
     : tx_radio(std::make_unique<RF24>(cePin, csnPin)) {}
 
-
-RadioInterface::RadioInterface(uint8_t txCePin, uint8_t txCsnPin, uint8_t rxCePin,
-                               uint8_t rxCsnPin)
+RadioInterface::RadioInterface(uint8_t txCePin, uint8_t txCsnPin,
+                               uint8_t rxCePin, uint8_t rxCsnPin)
     : tx_radio(std::make_unique<RF24>(txCePin, txCsnPin)),
       rx_radio(std::make_unique<RF24>(rxCePin, rxCsnPin)), full_duplex(true) {}
 
@@ -22,11 +21,11 @@ RadioInterface::RadioInterface(uint8_t txCePin, uint8_t txCsnPin,
 bool RadioInterface::begin() {
   if (!tx_radio->begin())
     return false;
-  tx_radio->setPALevel(RF24_PA_LOW);
+  tx_radio->setPALevel(RF24_PA_MAX);
   if (full_duplex && rx_radio) {
     if (!rx_radio->begin())
       return false;
-    rx_radio->setPALevel(RF24_PA_LOW);
+    rx_radio->setPALevel(RF24_PA_MAX);
     rx_radio->startListening();
   } else {
     tx_radio->stopListening();
@@ -129,6 +128,4 @@ bool RadioInterface::testRPD() {
   return rx->testRPD();
 }
 
-uint8_t RadioInterface::getARC() {
-  return tx_radio->getARC();
-}
+uint8_t RadioInterface::getARC() { return tx_radio->getARC(); }
