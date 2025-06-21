@@ -18,6 +18,7 @@ add_subdirectory(external/RF24)
 add_library(drone_core
     src/drone.cpp
     src/radio.cpp
+    src/mpu6050.cpp
 )
 
 add_executable(drone src/main.cpp)

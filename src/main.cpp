@@ -1,6 +1,7 @@
 #include "drone.hpp"
 #include "packets.hpp"
 #include "radio.hpp"
+#include "mpu6050.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
@@ -83,7 +84,7 @@ static void leaderLoop(RadioInterface &radio, Drone &drone,
   }
 }
 
-static void followerLoop(RadioInterface &radio, Drone &drone) {
+static void followerLoop(RadioInterface &radio, Drone &drone, Mpu6050 *sensor) {
   auto last_leader = std::chrono::steady_clock::now();
   auto last_telemetry = std::chrono::steady_clock::now();
 
@@ -102,12 +103,22 @@ static void followerLoop(RadioInterface &radio, Drone &drone) {
 
     auto now = std::chrono::steady_clock::now();
     if (now - last_telemetry > std::chrono::seconds(2)) {
-      drone.updateSensors(static_cast<int16_t>(rand() % 100),
-                          static_cast<int16_t>(rand() % 100),
-                          static_cast<int16_t>(rand() % 100),
-                          static_cast<int16_t>(rand() % 50),
-                          static_cast<int16_t>(rand() % 50),
-                          static_cast<int16_t>(rand() % 50), 120.0f, 3.7f);
+      int16_t ax = 0, ay = 0, az = 0;
+      int16_t gx = 0, gy = 0, gz = 0;
+      bool ok = false;
+      if (sensor) {
+        ok = sensor->readAcceleration(ax, ay, az) &&
+             sensor->readGyro(gx, gy, gz);
+      }
+      if (!ok) {
+        ax = static_cast<int16_t>(rand() % 100);
+        ay = static_cast<int16_t>(rand() % 100);
+        az = static_cast<int16_t>(rand() % 100);
+        gx = static_cast<int16_t>(rand() % 50);
+        gy = static_cast<int16_t>(rand() % 50);
+        gz = static_cast<int16_t>(rand() % 50);
+      }
+      drone.updateSensors(ax, ay, az, gx, gy, gz, 120.0f, 3.7f);
       drone.sendTelemetry();
       last_telemetry = now;
     }
@@ -137,6 +148,11 @@ int main(int argc, char **argv) {
   }
 
   RadioInterface radio(TX_CE_PIN, TX_CSN_PIN, RX_CE_PIN, RX_CSN_PIN);
+
+  Mpu6050 sensor;
+  if (!sensor.init()) {
+    std::cerr << "MPU6050 başlatılamadı, rasgele veriler kullanılacak\n";
+  }
 
   if (!radio.begin()) {
     std::cerr << "Radio başlatılamadı!\n";
@@ -193,7 +209,7 @@ int main(int argc, char **argv) {
     if (drone.isLeader())
       leaderLoop(radio, drone, swarm, 0, op_channel);
     else
-      followerLoop(radio, drone);
+      followerLoop(radio, drone, &sensor);
   }
 
   return 0;
