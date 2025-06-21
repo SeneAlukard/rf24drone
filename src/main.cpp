@@ -11,9 +11,9 @@
 #include <vector>
 
 #define TX_CE_PIN 27
-#define TX_CSN_PIN 10
+#define TX_CSN_PIN 0
 #define RX_CE_PIN 22
-#define RX_CSN_PIN 0
+#define RX_CSN_PIN 10
 
 static constexpr uint64_t BASE_TX = 0xF0F0F0F0D2LL;
 static constexpr uint64_t BASE_RX = 0xF0F0F0F0E1LL;

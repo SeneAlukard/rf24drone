@@ -4,7 +4,7 @@
 #include <unistd.h>
 
 // CE = GPIO27, CSN = GPIO10
-RF24 radio(27, 10);
+RF24 radio(22, 0);
 
 const uint8_t address[6] = {'1', 'N', 'o', 'd', 'e', '\0'};
 

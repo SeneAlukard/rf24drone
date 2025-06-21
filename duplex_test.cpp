@@ -1,4 +1,4 @@
-#include "radio.hpp"
+#include "./include/radio.hpp"
 #include <chrono>
 #include <cstring>
 #include <iostream>
@@ -30,8 +30,10 @@ void droneThread(RadioInterface &radio, const char *sendMsg) {
 }
 
 int main() {
-  RadioInterface radioA(DRONE_A_TX_CE, DRONE_A_TX_CSN, DRONE_A_RX_CE, DRONE_A_RX_CSN);
-  RadioInterface radioB(DRONE_B_TX_CE, DRONE_B_TX_CSN, DRONE_B_RX_CE, DRONE_B_RX_CSN);
+  RadioInterface radioA(DRONE_A_TX_CE, DRONE_A_TX_CSN, DRONE_A_RX_CE,
+                        DRONE_A_RX_CSN);
+  RadioInterface radioB(DRONE_B_TX_CE, DRONE_B_TX_CSN, DRONE_B_RX_CE,
+                        DRONE_B_RX_CSN);
 
   if (!radioA.begin() || !radioB.begin()) {
     std::cerr << "Failed to initialize radios" << std::endl;
@@ -51,4 +53,3 @@ int main() {
 
   return 0;
 }
-
