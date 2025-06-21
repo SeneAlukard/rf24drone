@@ -89,6 +89,14 @@ set_target_properties(mpu_send_test PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/test
 )
 
+# Companion test that receives the telemetry packets sent by
+# `mpu_send_test` and prints them to the console.
+add_executable(mpu_receive_test mpu_receive_test.cpp)
+target_link_libraries(mpu_receive_test PRIVATE drone_core)
+set_target_properties(mpu_receive_test PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/test
+)
+
 # Example: read MPU6050 data and print to the terminal
 add_executable(mpu_terminal examples/mpu_terminal.cpp)
 target_link_libraries(mpu_terminal PRIVATE drone_core)
