@@ -76,6 +76,15 @@ The test binary can be run from the `test/` folder:
 ./test/duplex_test
 ```
 
+### Reading raw MPU6050 data
+
+An extra example is provided to print sensor values over I2C:
+
+```bash
+make mpu_terminal
+./examples/mpu_terminal
+```
+
 ---
 
 ## 💡 Features

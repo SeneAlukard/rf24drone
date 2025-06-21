@@ -82,6 +82,13 @@ set_target_properties(packets_test PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/test
 )
 
+# Example: read MPU6050 data and print to the terminal
+add_executable(mpu_terminal examples/mpu_terminal.cpp)
+target_link_libraries(mpu_terminal PRIVATE drone_core)
+set_target_properties(mpu_terminal PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/examples
+)
+
 # Symlink the main binary to the project root for convenience
 add_custom_command(
     TARGET drone POST_BUILD
