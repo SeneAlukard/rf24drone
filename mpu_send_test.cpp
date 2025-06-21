@@ -28,7 +28,7 @@ int main() {
     return 1;
   }
 
-  radio.configure(90, RadioDataRate::MEDIUM_RATE);
+  radio.configure(1, RadioDataRate::MEDIUM_RATE);
   radio.setAddress(GBS_ADDR_TX, GBS_ADDR_RX);
 
   for (int i = 0; i < 10; ++i) {
