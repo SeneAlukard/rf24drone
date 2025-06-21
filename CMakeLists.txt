@@ -82,6 +82,13 @@ set_target_properties(packets_test PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/test
 )
 
+# Small test to send MPU6050 data over RF to the ground station
+add_executable(mpu_send_test mpu_send_test.cpp)
+target_link_libraries(mpu_send_test PRIVATE drone_core)
+set_target_properties(mpu_send_test PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/test
+)
+
 # Example: read MPU6050 data and print to the terminal
 add_executable(mpu_terminal examples/mpu_terminal.cpp)
 target_link_libraries(mpu_terminal PRIVATE drone_core)
