@@ -15,6 +15,9 @@ static constexpr uint64_t BASE_RX = 0xF0F0F0F0E1ULL;
 
 struct SimplePacket {
   uint8_t drone_id;
+  int16_t accel_x;
+  int16_t accel_y;
+  int16_t accel_z;
   int16_t gyro_x;
   int16_t gyro_y;
   int16_t gyro_z;
@@ -42,18 +45,26 @@ int main() {
   std::default_random_engine rng{static_cast<unsigned>(std::time(nullptr))};
   std::uniform_int_distribution<int> jitter(50, 100);
   std::uniform_int_distribution<int16_t> randGyro(-100, 100);
+  std::uniform_int_distribution<int16_t> randAccel(-100, 100);
 
   SimplePacket pkt{};
   pkt.drone_id = drone_id;
 
   while (true) {
+    int16_t ax = 0, ay = 0, az = 0;
     int16_t gx = 0, gy = 0, gz = 0;
-    bool ok = sensor.readGyro(gx, gy, gz);
+    bool ok = sensor.readAcceleration(ax, ay, az) && sensor.readGyro(gx, gy, gz);
     if (!ok) {
+      ax = randAccel(rng);
+      ay = randAccel(rng);
+      az = randAccel(rng);
       gx = randGyro(rng);
       gy = randGyro(rng);
       gz = randGyro(rng);
     }
+    pkt.accel_x = ax;
+    pkt.accel_y = ay;
+    pkt.accel_z = az;
     pkt.gyro_x = gx;
     pkt.gyro_y = gy;
     pkt.gyro_z = gz;
