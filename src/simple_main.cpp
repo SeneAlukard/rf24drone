@@ -21,6 +21,7 @@ struct SimplePacket {
   int16_t gyro_x;
   int16_t gyro_y;
   int16_t gyro_z;
+  int8_t rssi;
   bool leader;
 };
 
@@ -47,6 +48,7 @@ int main() {
   std::uniform_int_distribution<int> jitter(50, 100);
   std::uniform_int_distribution<int16_t> randGyro(-100, 100);
   std::uniform_int_distribution<int16_t> randAccel(-100, 100);
+  std::uniform_int_distribution<int16_t> randRssi(-75, -70);
 
   SimplePacket pkt{};
   pkt.drone_id = drone_id;
@@ -69,6 +71,7 @@ int main() {
     pkt.gyro_x = gx;
     pkt.gyro_y = gy;
     pkt.gyro_z = gz;
+    pkt.rssi = static_cast<int8_t>(randRssi(rng));
     pkt.leader = is_leader;
     radio.send(&pkt, sizeof(pkt));
 
