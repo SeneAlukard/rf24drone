@@ -75,9 +75,17 @@ int main() {
     if (radio.receive(buf, sizeof(buf), true)) {
       buf[31] = '\0';
       radio.receive(buf, sizeof(buf));
+
       unsigned int id = 0;
-      if (std::sscanf(buf, "%u Leader = True", &id) == 1 && id == drone_id) {
-        is_leader = true;
+      char state[6] = {0};
+      if (std::sscanf(buf, "%u Leader = %5s", &id, state) == 2) {
+        bool val = std::strcmp(state, "True") == 0 || std::strcmp(state, "true") == 0;
+        if (id == drone_id)
+          is_leader = val;
+        else
+          is_leader = false;
+      } else if (std::sscanf(buf, "LEADER = %u", &id) == 1) {
+        is_leader = (id == drone_id);
       }
     }
 
