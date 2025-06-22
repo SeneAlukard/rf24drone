@@ -34,7 +34,8 @@ int main() {
     return 1;
   }
 
-  radio.configure(1, RadioDataRate::MEDIUM_RATE);
+  // Maximum range achieved using the lowest data rate
+  radio.configure(1, RadioDataRate::LOW_RATE);
   radio.setAddress(BASE_TX, BASE_RX);
 
   Mpu6050 sensor;
