@@ -48,7 +48,7 @@ int main() {
   std::uniform_int_distribution<int> jitter(50, 100);
   std::uniform_int_distribution<int16_t> randGyro(-100, 100);
   std::uniform_int_distribution<int16_t> randAccel(-100, 100);
-  std::uniform_int_distribution<int16_t> randRssi(-75, -70);
+  std::uniform_int_distribution<int8_t> randRssi(-75, -70);
 
   SimplePacket pkt{};
   pkt.drone_id = drone_id;
@@ -56,7 +56,8 @@ int main() {
   while (true) {
     int16_t ax = 0, ay = 0, az = 0;
     int16_t gx = 0, gy = 0, gz = 0;
-    bool ok = sensor.readAcceleration(ax, ay, az) && sensor.readGyro(gx, gy, gz);
+    bool ok =
+        sensor.readAcceleration(ax, ay, az) && sensor.readGyro(gx, gy, gz);
     if (!ok) {
       ax = randAccel(rng);
       ay = randAccel(rng);
@@ -71,7 +72,7 @@ int main() {
     pkt.gyro_x = gx;
     pkt.gyro_y = gy;
     pkt.gyro_z = gz;
-    pkt.rssi = static_cast<int8_t>(randRssi(rng));
+    pkt.rssi = randRssi(rng);
     pkt.leader = is_leader;
     radio.send(&pkt, sizeof(pkt));
 
@@ -83,7 +84,8 @@ int main() {
       unsigned int id = 0;
       char state[6] = {0};
       if (std::sscanf(buf, "%u Leader = %5s", &id, state) == 2) {
-        bool val = std::strcmp(state, "True") == 0 || std::strcmp(state, "true") == 0;
+        bool val =
+            std::strcmp(state, "True") == 0 || std::strcmp(state, "true") == 0;
         if (id == drone_id)
           is_leader = val;
         else
@@ -93,7 +95,7 @@ int main() {
       }
     }
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
   }
 
   return 0;
